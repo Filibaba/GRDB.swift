@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 /// Test SQL generation
 
@@ -180,6 +176,7 @@ class AssociationHasOneThroughSQLTests: GRDBTestCase {
         where
         BAssociation: AssociationToOne,
         CAssociation: AssociationToOne,
+        BAssociation.OriginRowDecoder: TableRecord,
         BAssociation.OriginRowDecoder == CAssociation.OriginRowDecoder
     {
         let A = BAssociation.OriginRowDecoder.self
@@ -788,6 +785,7 @@ class AssociationHasOneThroughSQLTests: GRDBTestCase {
         CAssociation: AssociationToOne,
         DCAssociation: AssociationToOne,
         DBAssociation: AssociationToOne,
+        BAssociation.OriginRowDecoder: TableRecord,
         BAssociation.OriginRowDecoder == CAssociation.OriginRowDecoder,
         BAssociation.OriginRowDecoder == DCAssociation.OriginRowDecoder,
         BAssociation.OriginRowDecoder == DBAssociation.OriginRowDecoder

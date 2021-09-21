@@ -3,16 +3,38 @@ Release Notes
 
 All notable changes to this project will be documented in this file.
 
-GRDB adheres to [Semantic Versioning](https://semver.org/), with one expection: APIs flagged [**:fire: EXPERIMENTAL**](README.md#what-are-experimental-features). Those are unstable, and may break between any two minor releases of the library.
+GRDB adheres to [Semantic Versioning](https://semver.org/), with one exception: APIs flagged [**:fire: EXPERIMENTAL**](README.md#what-are-experimental-features). Those are unstable, and may break between any two minor releases of the library.
 
+#### 5.x Releases
 
-<!--
-[Next Release](#next-release)
--->
-
+- `5.11.x` Releases - [5.11.0](#5110)
+- `5.10.x` Releases - [5.10.0](#5100)
+- `5.9.x` Releases - [5.9.0](#590)
+- `5.8.x` Releases - [5.8.0](#580)
+- `5.7.x` Releases - [5.7.0](#570) | [5.7.1](#571) | [5.7.2](#572) | [5.7.3](#573) | [5.7.4](#574)
+- `5.6.x` Releases - [5.6.0](#560)
+- `5.5.x` Releases - [5.5.0](#550)
+- `5.4.x` Releases - [5.4.0](#540)
+- `5.3.x` Releases - [5.3.0](#530)
+- `5.2.x` Releases - [5.2.0](#520)
+- `5.1.x` Releases - [5.1.0](#510)
+- `5.0.x` Releases - [5.0.0](#500) | [5.0.1](#501) | [5.0.2](#502) | [5.0.3](#503)
+- `5.0.0` Betas - [5.0.0-beta](#500-beta) | [5.0.0-beta.2](#500-beta2) | [5.0.0-beta.3](#500-beta3) | [5.0.0-beta.4](#500-beta4) | [5.0.0-beta.5](#500-beta5) | [5.0.0-beta.6](#500-beta6) | [5.0.0-beta.7](#500-beta7) | [5.0.0-beta.8](#500-beta8) | [5.0.0-beta.9](#500-beta9) | [5.0.0-beta.10](#500-beta10) | [5.0.0-beta.11](#500-beta11)
 
 #### 4.x Releases
 
+- `4.14.x` Releases - [4.14.0](#4140)
+- `4.13.x` Releases - [4.13.0](#4130)
+- `4.12.x` Releases - [4.12.0](#4120) | [4.12.1](#4121) | [4.12.2](#4122)
+- `4.11.x` Releases - [4.11.0](#4110)
+- `4.10.x` Releases - [4.10.0](#4100)
+- `4.9.x` Releases - [4.9.0](#490)
+- `4.8.x` Releases - [4.8.0](#480) | [4.8.1](#481)
+- `4.7.x` Releases - [4.7.0](#470)
+- `4.6.x` Releases - [4.6.0](#460) | [4.6.1](#461) | [4.6.2](#462)
+- `4.5.x` Releases - [4.5.0](#450)
+- `4.4.x` Releases - [4.4.0](#440)
+- `4.3.x` Releases - [4.3.0](#430)
 - `4.2.x` Releases - [4.2.0](#420) | [4.2.1](#421)
 - `4.1.x` Releases - [4.1.0](#410) | [4.1.1](#411)
 - `4.0.x` Releases - [4.0.0](#400) | [4.0.1](#401)
@@ -54,10 +76,860 @@ GRDB adheres to [Semantic Versioning](https://semver.org/), with one expection: 
 
 - [0.110.0](#01100), ...
 
+---
 
-<!--
-## Next Release
--->
+## 5.11.0
+
+Released September 3, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.10.0...v5.11.0)
+
+- **Fixed**: Version 5.10.0, when embedded as an Xcode project, would enable the FTS5 full-text engine on system versions that do not provide it.
+- **New**: [#1046](https://github.com/groue/GRDB.swift/pull/1046) by [@groue](https://github.com/groue): Improve performance of by-index row decoding
+- **New**: [#1029](https://github.com/groue/GRDB.swift/pull/1029) by [@sberrevoets](https://github.com/sberrevoets), [@groue](https://github.com/groue): Column coding strategies for Codable records
+
+
+## 5.10.0
+
+Released August 22, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.9.0...v5.10.0)
+
+- **New**: [#1036](https://github.com/groue/GRDB.swift/pull/1036) by [@groue](https://github.com/groue): Restore minimal CI tests
+- **New**: [#1037](https://github.com/groue/GRDB.swift/pull/1037) by [@groue](https://github.com/groue): Support BUILD_LIBRARY_FOR_DISTRIBUTION
+- **New**: [#1038](https://github.com/groue/GRDB.swift/pull/1038) by [@GetToSet](https://github.com/GetToSet): Add match operator in ColumnExpression for FTS5
+- **New**: With Swift 5.5+, enhance access to `Column.rowID`. Row and PersistenceContainer subscripts now accept `row[.rowID]` and `container[.rowID]` ([SE-0299](https://github.com/apple/swift-evolution/blob/main/proposals/0299-extend-generic-static-member-lookup.md))
+- **Documentation Update**: A new [Combine and Data Consistency](Documentation/Combine.md#combine-and-data-consistency) chapter explains how to make sure database publishers do not break important database invariants.
+
+
+## 5.9.0
+
+Released August 15, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.8.0...v5.9.0)
+
+- **Fixed**: [#980](https://github.com/groue/GRDB.swift/pull/980) by [@jroselightricks](https://github.com/jroselightricks): Fix spelling
+- **Fixed**: [#989](https://github.com/groue/GRDB.swift/pull/989) by [@pp5x](https://github.com/pp5x): FTS: add support of ifNotExists in synchronize()
+- **Fixed**: [#999](https://github.com/groue/GRDB.swift/issues/999): `request(for: association)` no longer crashes when the foreign key contains a NULL value.
+- **Fixed**: [#1025](https://github.com/groue/GRDB.swift/issues/1025) by [@mattgallagher](https://github.com/mattgallagher): Fix ValueObservation crash
+- **Fixed**: Fix thread unsafety in `ValueObservation.print()`
+- **New**: The `selectID()` method is now available for [Identifiable Records](README.md#identifiable-records)
+- **New**: Cached prepared statements can profit from [SQL Interpolation](Documentation/SQLInterpolation.md):
+    
+    ```swift
+    let updateStatement = try db.cachedStatement(literal: "INSERT ...")
+    //                                           ~~~~~~~
+    ```
+
+- **New**: [#993](https://github.com/groue/GRDB.swift/pull/993) by [@groue](https://github.com/groue): QueryInterfaceRequest builder with dynamic table/view name
+- **New**: Types that adopt both `DatabaseValueConvertible` and `Codable` now profit from automatic JSON encoding and decoding.
+- **New**: [#1010](https://github.com/groue/GRDB.swift/pull/1010) by [@tternes](https://github.com/tternes): Add VACUUM INTO Support
+- **New**: [#1012](https://github.com/groue/GRDB.swift/pull/1012) by [@ZevEisenberg](https://github.com/ZevEisenberg): Add brackets to urls in doc comments to make them clickable
+- **New**: [#1019](https://github.com/groue/GRDB.swift/pull/1019) by [@groue](https://github.com/groue): Merge prepared statement types, and introduce statement cursor
+- **Documentation Update**: The [Requests](README.md#requests) chapter was updated for the new `Table` type that can build requests without any record type.
+- **Documentation Update**: The [Custom Value Types](README.md#custom-value-types) chapter was extended about the new support for codable value types encoded as JSON arrays or objects.
+- **Documentation Update**: The [Fetching Methods](README.md#fetching-methods) and [Prepared Statements](README.md#prepared-statements) chapters have been updated for the unique `Statement` class, and the new `Database.allStatements()` method.
+
+
+## 5.8.0
+
+Released May 16, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.7.4...v5.8.0)
+
+- **New**: Support for the `ESCAPE` clause with the `LIKE` operator.
+- **New**: You can now define an `SQLRequest` without any generic qualifier (which defaults to `Row`):
+
+    ```swift
+    let request = SQLRequest("SELECT ...")
+    ```
+- **New**: [#967](https://github.com/groue/GRDB.swift/pull/967) by [@steipete](https://github.com/steipete): Make SelectStatement conform to CustomStringConvertible
+- **Fixed**: The `DerivableRequest.limit(_:offset:)` method was ill-designed, and removed from the documentation. It is unfortunately impossible to deprecate it without triggering warnings on the legit use cases (on `QueryInterfaceRequest`).
+- **Fixed**: [#973](https://github.com/groue/GRDB.swift/pull/973): Restore access to attached databases from record types
+- **Fixed**: [#974](https://github.com/groue/GRDB.swift/pull/974): Provide access to included associations when root table is not selected
+- **Documentation Update**: A new [Query Interface Organization](Documentation/QueryInterfaceOrganization.md) document reveals the relationship between the various components of the GRDB query builder.
+
+## 5.7.4
+
+Released April 11, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.7.3...v5.7.4)
+
+- **New**: [#953](https://github.com/groue/GRDB.swift/pull/953): Refactor the SwiftUI demo app
+- **Fixed**: [#955](https://github.com/groue/GRDB.swift/pull/955) by [@steipete](https://github.com/steipete): Robustness of @Query in the SwiftUI demo app
+- **Fixed**: [#956](https://github.com/groue/GRDB.swift/pull/956): Fix case-sensitivity of region-based database observation
+- **New**: [#958](https://github.com/groue/GRDB.swift/pull/958) by [@chrisballinger](https://github.com/chrisballinger): Always add userInfo to databaseJSONDecoder and databaseJSONEncoder
+- **New**: [#960](https://github.com/groue/GRDB.swift/pull/960) by [@MartinP7r](https://github.com/MartinP7r): Add tests for userInfo being applied to database encoder/decoder
+
+
+## 5.7.3
+
+Released April 5, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.7.2...v5.7.3)
+
+- **Fixed**: [#950](https://github.com/groue/GRDB.swift/pull/950) by [@MartinP7r](https://github.com/MartinP7r): Fix memory consumption when encoding JSON columns
+- **Fixed**: [#951](https://github.com/groue/GRDB.swift/pull/951) by [@alexwlchan](https://github.com/alexwlchan): Fix documentation typo
+- **Fixed**: [#952](https://github.com/groue/GRDB.swift/pull/952) by [@holsety](https://github.com/holsety): Fix documentation typo
+- **Documentation Update**: [#953](https://github.com/groue/GRDB.swift/pull/953): Refactor the SwiftUI demo app
+
+#### 5.7.2
+
+- **Fixed**: Really fix breaking change and restore `SQLLiteral` as a deprecated alias for `SQL`.
+
+#### 5.7.1
+
+- **Fixed**: Fix breaking change and restore `SQLLiteral` as a deprecated alias for `SQL`.
+
+## 5.7.0
+
+Released March 28, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.6.0...v5.7.0)
+
+- **New**: [#947](https://github.com/groue/GRDB.swift/pull/947) by [@chrisballinger](https://github.com/chrisballinger): Allow access to Encoder from KeyedEncodingContainer
+
+- **New**: Record types that adopt the standard [Identifiable](https://developer.apple.com/documentation/swift/identifiable) protocol have gained type-safe methods that deal with the primary key. For example:
+    
+    ```swift
+    let player = try Player.fetchOne(db, id: 42)
+    try Player.deleteAll(db, ids: [1, 2, 3])
+    ```
+    
+    See the new [Identifiable Records](README.md#identifiable-records) documentation chapter for more information.
+
+- **New**: `SQLLiteral` has more use cases than initialy expected, and is renamed `SQL`.
+
+- **New**: [`SQL` literal](Documentation/SQLInterpolation.md#sql-literal) can now be directly used as an expression, an ordering term, or a selection item.:
+    
+    ```swift
+    let name = "O'Brien"
+    let request = Player
+        .select(SQL("id, score"), ...)
+        .filter(SQL("name = \(name)") && ...)
+        .order(SQL("score DESC"), ...)
+    ```
+
+- **New**: Table creation DSL now supports columns and constraints defined with raw SQL String or [SQL literal](Documentation/SQLInterpolation.md#sql-literal):
+    
+    ```swift
+    try db.create(table: "player") do { t in
+        t.column(sql: "id INTEGER PRIMARY KEY AUTOINCREMENT")
+        t.column(literal: "name TEXT DEFAULT \("Anonymous")")
+        t.constraint(sql: "CHECK (LENGTH(name) > 0)")
+        t.constraint(literal: "CHECK (LENGTH(name) <= \(100))")
+    }
+    ```
+
+- **New**: Prepared statements can profit from [SQL Interpolation](Documentation/SQLInterpolation.md):
+    
+    ```swift
+    let updateStatement = try db.makeUpdateStatement(literal: "INSERT ...")
+    let selectStatement = try db.makeSelectStatement(literal: "SELECT ...")
+    //                                               ~~~~~~~
+    ```
+
+- **New**: [DatabaseMigrator](Documentation/Migrations.md#asynchronous-migrations) can now asynchronously migrate a database. A Combine publisher is also available.
+
+- **New**: Added support for the `EXISTS` and `NOT EXISTS` subquery operators. See the updated [SQL Operators](README.md#sql-operators) documentation.
+
+- **New**: `Foundation.Decimal` can now be stored in the database, and all Foundation number types can be decoded from decimal numbers stored as strings. See the [NSNumber, NSDecimalNumber, and Decimal](README.md#nsnumber-nsdecimalnumber-and-decimal) chapter for details.
+
+## 5.6.0
+
+Released March 12, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.5.0...v5.6.0)
+
+- **Fixed**: [#933](https://github.com/groue/GRDB.swift/pull/933): Fix DatabaseMigrator.eraseDatabaseOnSchemaChange in the context of shared databases
+
+- **Fixed**: [#934](https://github.com/groue/GRDB.swift/pull/934): Fix a crash in the ValueObservation publisher
+
+- **New**: [#936](https://github.com/groue/GRDB.swift/pull/936): Complete Associations and the DerivableRequest Protocol
+
+- **New**: Database cursors can feed more standard Swift collections: `Array(cursor, minimumCapacity: ...)`, `Dictionary(uniqueKeysWithValues: cursor)`, etc (see [Cursors](README.md#cursors)).
+
+- **Documentation update**: The [Associations Guide](Documentation/AssociationsBasics.md) has gained a new [Further Refinements to Associations](Documentation/AssociationsBasics.md#further-refinements-to-associations) chapter which shows the new association methods brought by [#936](https://github.com/groue/GRDB.swift/pull/936).
+
+- **Documentation update**: The [Good Practices for Designing Record Types](Documentation/GoodPracticesForDesigningRecordTypes.md) guide has an updated [Define Record Requests](Documentation/GoodPracticesForDesigningRecordTypes.md#define-record-requests) chapter, now that the `DerivableRequest` protocol has access to `limit`, `distinct`, `group`, `having`, association aggregates, and common table expressions.
+
+- **Documentation update**: The [Good Practices for Designing Record Types](Documentation/GoodPracticesForDesigningRecordTypes.md) guide has a new chapter of good practices: [Record Types Hide Intimate Database Details](Documentation/GoodPracticesForDesigningRecordTypes.md#record-types-hide-intimate-database-details).
+
+- **Documentation update**: A new [Single-Row Tables](Documentation/SingleRowTables.md) guide provides guidance for designing tables that store configuration values, user preferences, and generally some global application state.
+
+## 5.5.0
+
+Released March 3, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.4.0...v5.5.0)
+
+- **New**: You can now define common table expressions without any generic qualifier (which defaults to `Row`):
+
+    ```swift
+    let cte = CommonTableExpression(...)
+    ```
+    
+    The [Common Table Expressions Guide](Documentation/CommonTableExpressions.md) was updated accordingly.
+
+- **New**: `DatabaseQueue` reading methods are now wrapped in a deferred transaction. This guarantees snapshot isolation in case of concurrent writes performed by external connections, and makes `DatabaseQueue` a type suitable for shared databases.
+
+- **Fixed**: `DatabaseQueue.read` is now declared `throws` instead of `rethrows`.
+
+- **Fixed**: [#930](https://github.com/groue/GRDB.swift/pull/930): Fix SQL generation for `COLLATE`, `IN`, `NOT IN`
+
+## 5.4.0
+
+Released February 15, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.3.0...v5.4.0)
+
+- **Breaking Change**: The query interface was refactored and some types such as `SQLExpression` are no longer a protocol.
+    
+    This may break some applications that rely on Swift type inference, such as in the following example:
+    
+    ```swift
+    // No longer compiles
+    let values = [Column("score"), Column("score") + Column("bonus")]
+    ```
+    
+    The fix is to add an explicit declaration of the desired type:
+    
+    ```swift
+    // A possible fix
+    let values: [SQLExpressible] = [Column("score"), Column("score") + Column("bonus")]
+    ```
+    
+    Occurrences of such code breakage should be very rare.
+    
+- **New**: [SQL Interpolation](Documentation/SQLInterpolation.md) supports embedding collations into SQL literals:
+    
+    ```swift
+    let request: SQLRequest<Player> = "SELECT * FROM player ORDER BY email COLLATION \(.nocase)"
+    let request: SQLRequest<Player> = "SELECT * FROM player ORDER BY name COLLATION \(.localizedCompare)"
+    ```
+    
+- **Documentation update**: [Adding support for missing SQL functions or operators](README.md#adding-support-for-missing-sql-functions-or-operators) explains how to extend the query interface when needed.
+
+- **Documentation update**: The [Demo Applications](Documentation/DemoApps/) now provide tests for the database access layer.
+
+## 5.3.0
+
+Released January 9, 2021 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.2.0...v5.3.0)
+
+- **New**: [#880](https://github.com/groue/GRDB.swift/pull/880): Common Table Expressions
+- **New**: [#892](https://github.com/groue/GRDB.swift/pull/892) by [@eburns-vmware](https://github.com/eburns-vmware): Provide SQLCipher passphrase as Data
+- **Fixed**: [#881](https://github.com/groue/GRDB.swift/pull/881) by [@felixscheinost](https://github.com/felixscheinost) and [#883](https://github.com/groue/GRDB.swift/pull/883) by [@professordeng](https://github.com/professordeng): Documentation improvements
+- **Fixed**: [#885](https://github.com/groue/GRDB.swift/pull/885): Robustness of eager loading of to-many associations based on compound foreign keys
+- **Fixed**: [#901](https://github.com/groue/GRDB.swift/pull/901) by [@wuyuehyang](https://github.com/wuyuehyang): Fix creation of FTS5 tokenizer with arguments
+- **Fixed**: [#903](https://github.com/groue/GRDB.swift/pull/903) by [@chrisballinger](https://github.com/chrisballinger): Fix SPM installation instructions
+- **Documentation update**: A new guide: [Common Table Expressions](https://github.com/groue/GRDB.swift/blob/master/Documentation/CommonTableExpressions.md)
+- **Documentation update**: The [Foreign Keys](https://github.com/groue/GRDB.swift/blob/master/Documentation/AssociationsBasics.md#foreign-keys) chapter of the Associations Guide clarifies the behavior of SQLite and GRDB regarding the presence of NULL if compound foreign keys.
+
+
+## 5.2.0
+
+Released November 29, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.1.0...v5.2.0)
+
+- **New**: [#868](https://github.com/groue/GRDB.swift/pull/868): ValueObservation optimization is opt-in.
+- **New**: [#872](https://github.com/groue/GRDB.swift/pull/872): Parse time zones
+- **Documentation update**: The [ValueObservation Performance](https://github.com/groue/GRDB.swift/blob/master/README.md#valueobservation-performance) chapter was extended with a tip for observations that track a constant database region.
+- **Documentation update**: The [Date and DateComponents](https://github.com/groue/GRDB.swift/blob/master/README.md#date-and-datecomponents) chapter describes the support for time zones.
+- **Documentation update**: A caveat ([#871](https://github.com/groue/GRDB.swift/issues/871)) with the `including(all:)` method, which may fail with a database error of code [`SQLITE_ERROR`](https://www.sqlite.org/rescode.html#error) (1) "Expression tree is too large" when you use a compound foreign key and there are a lot of parent records, is detailed in the [Joining And Prefetching Associated Records](https://github.com/groue/GRDB.swift/blob/master/Documentation/AssociationsBasics.md#joining-and-prefetching-associated-records) chapter.
+
+
+## 5.1.0
+
+Released November 1, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.3...v5.1.0)
+
+- **New**: Clarifications on [ValueObservation that track a varying database region](https://github.com/groue/GRDB.swift/blob/master/README.md#observing-a-varying-database-region).
+- **New**: FAQ [Why is ValueObservation not publishing value changes?](https://github.com/groue/GRDB.swift/blob/master/README.md#why-is-valueobservation-not-publishing-value-changes)
+- **New**: [#855](https://github.com/groue/GRDB.swift/pull/855) by [@mallman](https://github.com/mallman): Support for generated columns with custom SQLite build, and upgrade custom SQLite builds to version 3.33.0
+- **New**: [#864](https://github.com/groue/GRDB.swift/pull/864): Prevent filter misuse with a deprecation warning
+
+
+## 5.0.3
+
+Released October 25, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.2...v5.0.3)
+
+- **Fixed**: [#859](https://github.com/groue/GRDB.swift/pull/859): Database.close() is idempotent
+- **Fixed**: [#850](https://github.com/groue/GRDB.swift/pull/850) by [@mtancock](https://github.com/mtancock): Add buildActiveScheme to playground settings so they'll build under Xcode 12
+- **Fixed**: [#849](https://github.com/groue/GRDB.swift/pull/849) by [@MarshalGeazipp](https://github.com/MarshalGeazipp): Fix grammar mistake AssociationsBasics.md
+
+
+## 5.0.2
+
+Released October 6, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.1...v5.0.2)
+
+- **Fixed**: [#844](https://github.com/groue/GRDB.swift/issues/844): Fix a crash in the demo app
+- **Fixed**: [#847](https://github.com/groue/GRDB.swift/issues/847): Remove dependency on SQLITE_ENABLE_SNAPSHOT
+
+
+## 5.0.1
+
+Released September 27, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0...v5.0.1)
+
+- **Fixed**: [#841](https://github.com/groue/GRDB.swift/issues/841): Fix GRDB 5 regression with indexes on expressions
+- The [GRDBCombineDemo](Documentation/DemoApps/GRDBCombineDemo/README.md) Combine + SwiftUI demo application was updated for the SwiftUI App lifecycle introduced in iOS 14.
+
+
+## 5.0.0
+
+Released September 20, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.11...v5.0.0)
+
+- **Fixed**: [#838](https://github.com/groue/GRDB.swift/issues/838): Have indexed colums inherit the `ifNotExists` flag from table creation.
+
+
+## 5.0.0-beta.11
+
+Released September 7, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.10...v5.0.0-beta.11)
+
+- **Breaking Change**: [#831](https://github.com/groue/GRDB.swift/pull/831): Improve Configuration.prepareDatabase
+
+
+## 5.0.0-beta.10
+
+Released July 30, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.9...v5.0.0-beta.10)
+
+- **New**: DatabasePool readers don't invalidate their database schema cache until schema is actually changed.
+- **Breaking Change**: [#817](https://github.com/groue/GRDB.swift/pull/817): Allow query planner to optimize some boolean tests
+
+
+## 5.0.0-beta.9
+
+Released July 23, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.8...v5.0.0-beta.9)
+
+- **New**: [#813](https://github.com/groue/GRDB.swift/pull/813): Expose SQLite 3.31.1 APIs to iOS, macOS, tvOS, watchOS
+- **Fixed**: [#814](https://github.com/groue/GRDB.swift/pull/814): Fix regression with views
+
+
+## 5.0.0-beta.8
+
+Released July 19, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.7...v5.0.0-beta.8)
+
+- **New**: [#811](https://github.com/groue/GRDB.swift/pull/811): Introduce RenameColumnAdapter
+
+
+## 5.0.0-beta.7
+
+Released July 14, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.6...v5.0.0-beta.7)
+
+- **New**: [#802](https://github.com/groue/GRDB.swift/pull/802) by [@GetToSet](https://github.com/GetToSet): Add tokenchars support for ascii tokenizer in FTS5
+- **New**: `fetchSet` has joined `fetchCursor`, `fetchAll` and `fetchOne` in the group of universal fetching methods.
+- **Breaking Change**: [#803](https://github.com/groue/GRDB.swift/pull/803): Remove FetchedRecordsController
+- **Breaking Change**: Removed `TableRecord.primaryKey` and `selectPrimaryKey(as:)` introduced in 5.0.0-beta.5
+- **Breaking Change**: Many types and methods that support the query builder used to be publicly exposed and flagged as experimental. They are now private, or renamed with an underscore prefix, which means they are not for public use.
+- **Breaking Change**: Defining custom `FetchRequest` types is no longer supported.
+- **Breaking Change**: Defining custom `RowAdapter` types is no longer supported.
+- **Fixed**: Fix rare occurences of an `SQLITE_BUSY` error when opening a DatabaseSnapshot.
+- **Fixed**: Work around an SQLite bug which prevents rollbacking a transaction with `sqlite3_commit_hook`.
+- The [How do I filter records and only keep those that are NOT associated to another record?](README.md#how-do-i-filter-records-and-only-keep-those-that-are-not-associated-to-another-record) FAQ has been updated.
+
+
+## 5.0.0-beta.6
+
+Released June 29, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.5...v5.0.0-beta.6)
+
+- **New**: [#798](https://github.com/groue/GRDB.swift/pull/798): Debugging operators for ValueObservation
+- **New**: [#800](https://github.com/groue/GRDB.swift/pull/800): Xcode 12 support
+- **New**: [#801](https://github.com/groue/GRDB.swift/pull/801): Combine support
+- **New**: Faster decoding of Date and DateComponents
+
+### Documentation Diff
+
+- The [ValueObservation Operators](README.md#valueobservation-operators) chapter was extended with a description of the two new debugging operators `handleEvents` and `print`.
+
+- A new [GRDB ❤️ Combine](Documentation/Combine.md) guide describes the various Combine publishers that read, write, and observe the database.
+
+- [GRDBCombineDemo](Documentation/DemoApps/GRDBCombineDemo/README.md) is a new Combine + SwiftUI demo application.
+
+
+## 5.0.0-beta.5
+
+Released June 15, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.4...v5.0.0-beta.5)
+
+- **Breaking Change** [#795](https://github.com/groue/GRDB.swift/pull/795): Enhanced support for WAL Checkpoints
+- **New**: `Database.maximumStatementArgumentCount` returns the maximum number of arguments accepted by an SQLite statement.
+- **New**: Optimize DatabasePool handling of ValueObservation when SQLite is compiled with the SQLITE_ENABLE_SNAPSHOT option. We are now able to avoid fetching the observed value when we can prove that the database wasn't changed between the initial fetch and the beginning of transaction tracking. This optimization avoids duplicate notifications.
+- **New**: The query interface now exposes the primary key through `TableRecord.primaryKey`, as well as the `selectPrimaryKey(as:)` method.
+
+### Documentation Diff
+
+- The [Demo Application](Documentation/DemoApps/GRDBDemoiOS) was updated for better conformance with the [Good Practices for Designing Record Types](Documentation/GoodPracticesForDesigningRecordTypes.md) Guide.
+
+- A new [FAQ: Associations](README.md#faq-associations) addresses three frequent questions:
+    - [How do I filter records and only keep those that are associated to another record?](README.md#how-do-i-filter-records-and-only-keep-those-that-are-associated-to-another-record)
+    - [How do I filter records and only keep those that are NOT associated to another record?](README.md#how-do-i-filter-records-and-only-keep-those-that-are-not-associated-to-another-record)
+    - [How do I select only one column of an associated record?](README.md#how-do-i-select-only-one-column-of-an-associated-record)
+
+- The guide for [Custom SQLite builds](Documentation/CustomSQLiteBuilds.md) now recommends enabling the `SQLITE_ENABLE_SNAPSHOT` option.
+
+
+## 5.0.0-beta.4
+
+Released June 6, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.3...v5.0.0-beta.4)
+
+### Documentation Diff
+
+- [Migrating From GRDB 4 to GRDB 5](Documentation/GRDB5MigrationGuide.md) was updated for RxGRDB and GRDBCombine 1.0 beta 2, which haved change their way to configure how ValueObservation schedules fresh database values.
+- The [SQL Functions](README.md#sql-functions) chapter was updated for the new `julianDay` and `dateTime` functions.
+
+### New
+
+- [#794](https://github.com/groue/GRDB.swift/pull/794): Name of Database Connections
+- Add the `julianDay` and `dateTime` functions
+
+
+## 5.0.0-beta.3
+
+Released June 1, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta.2...v5.0.0-beta.3)
+
+### Documentation Diff
+
+- Updated FAQ: [How do I print a request as SQL?](README.md#how-do-i-print-a-request-as-sql)
+- New FAQ: [How do I monitor the duration of database statements execution?](README.md#how-do-i-monitor-the-duration-of-database-statements-execution)
+
+### Fixed
+
+- [#784](https://github.com/groue/GRDB.swift/pull/784): Fix observation of eager-loaded to-many associations
+
+### Breaking Changes
+
+- [#790](https://github.com/groue/GRDB.swift/pull/790): Bump required iOS version to 10.0
+- [#791](https://github.com/groue/GRDB.swift/pull/791): Extend tracing of statement execution
+
+
+## 5.0.0-beta.2
+
+Released May 11, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v5.0.0-beta...v5.0.0-beta.2)
+
+### Documentation Diff
+
+- [Migrating From GRDB 4 to GRDB 5](Documentation/GRDB5MigrationGuide.md) describes the sunsetting of custom `FetchRequest` types.
+- The [Sharing a Database](Documentation/SharingADatabase.md) guide has an updated recommendation for opening writer connections to a shared database.
+
+### New
+
+- [#772](https://github.com/groue/GRDB.swift/pull/772): Update the Database Sharing Guide with mention of the persistent WAL mode
+- [#775](https://github.com/groue/GRDB.swift/pull/775): DatabaseMigrator can check if it has been superseded
+
+### Breaking Changes
+
+- [#774](https://github.com/groue/GRDB.swift/pull/774): All requests are usable as SQL expressions and collections
+
+### Fixed
+
+- [#773](https://github.com/groue/GRDB.swift/pull/773): Allow subqueries to refer to outer tables
+
+
+## 5.0.0-beta
+
+Released May 2, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.14.0...v5.0.0-beta)
+
+GRDB 5 is a release focused on **Swift 5.2**, and **removing technical debt**.
+
+There are breaking changes, though as few as possible. They open the door for future library improvements. And they have GRDB, [GRDBCombine](http://github.com/groue/GRDBCombine), and [RxGRDB](http://github.com/RxSwiftCommunity/RxGRDB) offer a common behavior.
+
+New features include support for SQL subqueries, and a simplified handling of database errors. The most demanding users will also find it easier to switch between the system SQLite, SQLCipher, and custom SQLite builds.
+
+<details>
+    <summary>A glimpse on the new features</summary>
+
+All requests can now be used as subqueries:
+
+```swift
+// Define a request with the query interface or raw SQL
+let maximumScore = Player.select(max(Column("score")))
+let maximumScore: SQLRequest<Int> = "SELECT MAX(score) FROM player"
+
+// Use the request as a subquery in the query interface
+let request = Player.filter(Column("score") == maximumScore)
+let bestPlayers = try request.fetchAll(db)
+
+// Use the request as a subquery in SQL requests
+let request: SQLRequest<Player> = "SELECT * FROM player WHERE score = (\(maximumScore))"
+let bestPlayers = try request.fetchAll(db)
+```
+
+Catch specific SQLite error codes in a simplified fashion:
+
+```swift
+do {
+    try ...
+} catch DatabaseError.SQLITE_CONSTRAINT_FOREIGNKEY {
+    // foreign key constraint error
+} catch DatabaseError.SQLITE_CONSTRAINT {
+    // any other constraint error
+} catch {
+    // any other database error
+}
+```
+
+Reuse the same code for system SQLite, SQLCipher, and custom SQLite builds:
+
+```swift
+// Supported in all GRDB flavors
+import GRDB
+let sqliteVersion = String(cString: sqlite3_libversion())
+```
+
+</details>
+
+### Documentation Diff
+
+- **[Migrating From GRDB 4 to GRDB 5](Documentation/GRDB5MigrationGuide.md)**: how to upgrade your apps, and deal with breaking changes.
+- [ValueObservation](README.md#valueobservation): this chapter describes the new ValueObservation behaviors.
+- [DatabaseError](README.md#databaseerror): learn how to catch and match DatabaseError on their codes, in a fashion similar to `CocoaError`.
+- [Batch Updates](README.md#update-requests): this chapter is updated for the new `set(to:)` method.
+- [SQL Operators](README.md#sql-operators): introduces support for SQL and query interface subqueries.
+- [How do I print a request as SQL?](README.md#how-do-i-print-a-request-as-sql) This FAQ was updated for GRDB 5.
+- [SQL Interpolation](Documentation/SQLInterpolation.md): this guide now describes how to embed subqueries and record columns in your SQL literals.
+- [Joined Queries Support](README.md#joined-queries-support): describes the GRDB 5 way of dealing with complex and hand-crafted SQL queries.
+- [Raw SQLite Pointers](README.md#raw-sqlite-pointers) and [Custom SQLite builds](Documentation/CustomSQLiteBuilds.md): `import GRDB` now provides access to the full [C SQLite API](https://www.sqlite.org/capi3ref.html), and custom SQLite builds.
+
+### New
+
+- [#749](https://github.com/groue/GRDB.swift/pull/749): Drop submodules used by performance tests
+- [#754](https://github.com/groue/GRDB.swift/pull/754): Match DatabaseError on ResultCode
+- [#756](https://github.com/groue/GRDB.swift/pull/756): Export the underlying SQLite library
+
+### Breaking Changes
+
+- [#719](https://github.com/groue/GRDB.swift/pull/719): Bump required Swift version to 5.2
+- [#720](https://github.com/groue/GRDB.swift/pull/720): Turn deprecated APIs into unavailable ones
+- [#722](https://github.com/groue/GRDB.swift/pull/722): SE-0253: Callable values of user-defined nominal types
+- [#728](https://github.com/groue/GRDB.swift/pull/728): Make ValueObservation error handling mandatory
+- [#729](https://github.com/groue/GRDB.swift/pull/729): ValueObservation always emits an initial value
+- [#731](https://github.com/groue/GRDB.swift/pull/731): Hide ValueObservation implementation details
+- [#732](https://github.com/groue/GRDB.swift/pull/732): Remove ValueObservation.compactMap
+- [#736](https://github.com/groue/GRDB.swift/pull/736): Relax ValueObservation Guarantees
+- [#737](https://github.com/groue/GRDB.swift/pull/737): Force implicit database region for ValueObservation
+- [#738](https://github.com/groue/GRDB.swift/pull/738): Remove all observationForCount/All/First methods
+- [#742](https://github.com/groue/GRDB.swift/pull/742): ValueObservation scheduling is no longer an attribute of the observation
+- [#745](https://github.com/groue/GRDB.swift/pull/745): Explicit ValueObservation cancellation
+- [#747](https://github.com/groue/GRDB.swift/pull/747): Rename GRDBCustomSQLite to GRDB
+- [#750](https://github.com/groue/GRDB.swift/pull/750): Batch updates do not need any operator
+- [#752](https://github.com/groue/GRDB.swift/pull/752): Remove ValueObservation.combine
+- [#770](https://github.com/groue/GRDB.swift/pull/770): Subqueries
+
+### Fixed
+
+- [#601](https://github.com/groue/GRDB.swift/pull/601): ValueObservation won't start until concurrent write transaction has ended
+- [#697](https://github.com/groue/GRDB.swift/pull/697): `SQLInterpolation` could not work with `QueryInterfaceRequest`
+- [#743](https://github.com/groue/GRDB.swift/pull/743): Rename GRDBCustomSQLite to GRDB for compatibility with dependents?
+
+
+## 4.14.0
+
+Released April 23, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.13.0...v4.14.0)
+
+**New**
+
+- [#766](https://github.com/groue/GRDB.swift/pull/766) by [@mtancock](https://github.com/mtancock): Add Codable support to DatabaseDateComponents
+
+
+## 4.13.0
+
+Released April 15, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.12.2...v4.13.0)
+
+**Fixed**
+
+- Restored support for Xcode 10.0 and Xcode 10.1, broken in 4.12.2
+- [#759](https://github.com/groue/GRDB.swift/pull/759): Fix batch updates of complex requests
+
+**New**
+
+- [#761](https://github.com/groue/GRDB.swift/pull/761): Deprecate the batch update `<-` operator
+
+
+## 4.12.2
+
+Released April 13, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.12.1...v4.12.2)
+
+**Fixed**
+
+- [#757](https://github.com/groue/GRDB.swift/pull/757): Don't load association inflections unless necessary
+
+
+## 4.12.1
+
+Released March 29, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.12.0...v4.12.1)
+
+**Fixed**
+
+- [#744](https://github.com/groue/GRDB.swift/pull/744): Fix DatabaseMigrator deadlock with serial target queues
+
+
+## 4.12.0
+
+Released March 21, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.11.0...v4.12.0)
+
+**New**
+
+- Batch updates now accept nil assignments:
+    
+    ```swift
+    // UPDATE player SET score = NULL
+    try Player.updateAll(db, scoreColumn <- nil)
+    ```
+
+- DatabaseMigrator can now recreate the database if a migration has been removed, or renamed (addresses [#725](https://github.com/groue/GRDB.swift/issues/725)).
+    
+- DatabaseMigrator querying methods have been enhanced:
+    
+    ```swift
+    // New
+    dbQueue.read(migrator.hasCompletedMigrations)
+    dbQueue.read(migrator.completedMigrations).contains("v2")
+    dbQueue.read(migrator.completedMigrations).last == "v2"
+    dbQueue.read(migrator.appliedMigrations)
+    
+    // Deprecated
+    migrator.hasCompletedMigrations(in: dbQueue)
+    migrator.hasCompletedMigrations(in: dbQueue, through: "v2")
+    migrator.lastCompletedMigration(in: dbQueue) == "v2"
+    migrator.appliedMigrations(in: dbQueue)
+    ```
+
+
+## 4.11.0
+
+Released March 2, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.10.0...v4.11.0)
+
+### New
+
+- [#706](https://github.com/groue/GRDB.swift/pull/706): Enhance SQLLiteral and SQL interpolation again
+- [#710](https://github.com/groue/GRDB.swift/pull/710): Check if all migrations have been applied
+- [#712](https://github.com/groue/GRDB.swift/pull/712) by [@pakko972](https://github.com/pakko972): Automatic iOS memory management
+- [#713](https://github.com/groue/GRDB.swift/pull/713): Enhance DatabaseMigrator isolation
+
+### Breaking Change
+
+- [#709](https://github.com/groue/GRDB.swift/pull/709): Simplify DatabaseMigrator API
+
+Database migrations have a new behavior which is a breaking change. However, it is very unlikely to impact your application.
+
+In previous versions of GRDB, a foreign key violation would immediately prevent a migration from successfully complete. Now, foreign key checks are deferred until the end of each migration. This means that some migrations will change their behavior:
+
+```swift
+// Used to fail, now succeeds
+migrator.registerMigration(...) { db in
+    try violateForeignKeyConstraint(db)
+    try fixForeignKeyConstraint(db)
+}
+
+// The catch clause is no longer called
+migrator.registerMigration(...) { db in
+    do {
+        try performChanges(db)
+    } catch let error as DatabaseError where error.resultCode == .SQL_CONSTRAINT {
+        // Handle foreign key error
+    }
+}
+```
+
+If your application happens to define migrations that are impacted by this change, please open an issue so that we find a way to restore the previous behavior.
+
+
+## 4.10.0
+
+Released February 23, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.9.0...v4.10.0)
+
+**New**
+
+- [#689](https://github.com/groue/GRDB.swift/pull/689) by [@gjeck](https://github.com/gjeck): Add support for renaming columns within a table
+- [#690](https://github.com/groue/GRDB.swift/pull/690): Enhance SQLLiteral and SQL interpolation
+
+
+## 4.9.0
+
+Released January 17, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.8.1...v4.9.0)
+
+**New**
+
+- [#683](https://github.com/groue/GRDB.swift/pull/683): String concatenation
+- [#685](https://github.com/groue/GRDB.swift/pull/685) by [@gjeck](https://github.com/gjeck): Add cache for TableRecord.defaultDatabaseTableName
+
+
+## 4.8.1
+
+Released January 12, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.8.0...v4.8.1)
+
+**Fixed**
+
+- [#677](https://github.com/groue/GRDB.swift/pull/677): Fix associations altered by another association
+
+
+## 4.8.0
+
+Released January 8, 2020 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.7.0...v4.8.0)
+
+**New**
+
+- [#676](https://github.com/groue/GRDB.swift/pull/676): More batch delete and update
+
+
+## 4.7.0
+
+Released December 18, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.6.2...v4.7.0)
+
+**New**
+
+- [#656](https://github.com/groue/GRDB.swift/pull/656): Type inference of selected columns
+- [#659](https://github.com/groue/GRDB.swift/pull/659): Database interruption
+- [#660](https://github.com/groue/GRDB.swift/pull/660): Database Lock Prevention
+- [#662](https://github.com/groue/GRDB.swift/pull/662): Upgrade custom SQLite builds to version 3.30.1 (thanks to [@swiftlyfalling](https://github.com/swiftlyfalling/SQLiteLib))
+- [#668](https://github.com/groue/GRDB.swift/pull/668): Database Suspension
+
+### Breaking Changes
+
+[Custom SQLite builds](Documentation/CustomSQLiteBuilds.md) now disable by default the support for the [Double-quoted String Literals misfeature](https://sqlite.org/quirks.html#dblquote). This is a technically a breaking change, but it fixes an SQLite bug. You can restore the previous behavior if your application relies on it:
+
+```swift
+// Enable support for the Double-quoted String Literals misfeature
+var configuration = Configuration()
+configuration.acceptsDoubleQuotedStringLiterals = true
+let dbQueue = try DatabaseQueue(path: ..., configuration: configuration)
+```
+
+
+### Documentation Diff
+
+The new [Interrupt a Database](README.md#interrupt-a-database) chapter documents the new `interrupt()` method.
+
+The new [Sharing a Datatase in an App Group Container](Documentation/AppGroupContainers.md) guide explains how to setup GRDB when you share a database in an iOS App Group container.
+
+
+### API Diff
+
+```diff
+ struct Configuration {
++    var observesSuspensionNotifications: Bool // Experimental
++    var acceptsDoubleQuotedStringLiterals: Bool
+ }
+
+ class Database {
++    static let suspendNotification: Notification.Name // Experimental
++    static let resumeNotification: Notification.Name  // Experimental
+ }
+
+ extension DatabaseError {
++    var isInterruptionError: Bool { get }
+ }
+ 
+ protocol DatabaseReader {
++    func interrupt()
+ }
+ 
+ extension SQLSpecificExpressible {
++    #if GRDBCUSTOMSQLITE
++    var ascNullsLast: SQLOrderingTerm { get }
++    var descNullsFirst: SQLOrderingTerm { get }
++    #endif
+ }
+```
+
+
+## 4.6.2
+
+Released November 20, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.6.1...v4.6.2)
+
+**Fixed**
+
+- [#653](https://github.com/groue/GRDB.swift/pull/653) by [@michaelkirk-signal](https://github.com/michaelkirk-signal): Fix DatabaseMigrator.appliedMigrations() error on empty database
+
+
+## 4.6.1
+
+Released November 10, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.6.0...v4.6.1)
+
+**Fixed**
+
+- [#647](https://github.com/groue/GRDB.swift/pull/647): Honor conflict resolution for batch updates
+
+
+## 4.6.0
+
+Released November 9, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.5.0...v4.6.0)
+
+**New**
+
+- [#646](https://github.com/groue/GRDB.swift/pull/646): Batch updates
+
+### Documentation Diff
+
+The [Update Requests](README.md#update-requests) chapter documents the new support for batch updates introduced in the [query interface](README.md#the-query-interface).
+
+The [Associations Guide](Documentation/AssociationsBasics.md) has gained a new [Ordered Associations](Documentation/AssociationsBasics.md#ordered-associations) chapter which explains how to define ordered HasMany and HasManyThrough associations.
+
+
+## 4.5.0
+
+Released October 15, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.4.0...v4.5.0)
+
+**Fixed**
+
+- The `DatabaseMigrator.eraseDatabaseOnSchemaChange` option no longer fails when migrations depend on database configuration.
+- Fixed `DatabasePool.reentrantRead` which was not actually reentrant.
+- [#631](https://github.com/groue/GRDB.swift/pull/631): Fix custom SQLite builds
+- [#632](https://github.com/groue/GRDB.swift/pull/632) by [@runhum](https://github.com/runhum): Fix documentation typo
+
+**New**
+
+- [#622](https://github.com/groue/GRDB.swift/pull/622): Allow observation of FTS4 virtual tables
+- [#627](https://github.com/groue/GRDB.swift/pull/627): Swift Package Manager: define SQLite as a system library target
+- [#633](https://github.com/groue/GRDB.swift/pull/633): SQLITE_ENABLE_PREUPDATE_HOOK support with CocoaPods
+- [#635](https://github.com/groue/GRDB.swift/pull/635): Sunset FetchedRecordsController
+
+### Documentation Diff
+
+The [Support for SQLite Pre-Update Hooks](README.md#support-for-sqlite-pre-update-hooks) chapter has been updated with a way to enable extra GRDB APIs for the SQLITE_ENABLE_PREUPDATE_HOOK option with CocoaPods.
+
+The [Demo Application](Documentation/DemoApps/GRDBDemoiOS) no longer uses [FetchedRecordsController](Documentation/FetchedRecordsController.md), which has been sunsetted. Instead, it tracks database changes with [ValueObservation](README.md#valueobservation), and animates its table view with the Swift built-in [difference(from:)](https://developer.apple.com/documentation/swift/bidirectionalcollection/3200721-difference) method.
+
+
+## 4.4.0
+
+Released September 6, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.3.0...v4.4.0)
+
+
+### New
+
+- [#602](https://github.com/groue/GRDB.swift/pull/602): Don't keep the sqlCipher passphrase in memory longer than necessary
+- [#603](https://github.com/groue/GRDB.swift/pull/603): DatabasePool write barrier
+
+
+### Documentation Diff
+
+SQLCipher passphrase management has been refactored: you will get deprecation warnings. Check out the rewritten [Encryption](README.md#encryption) chapter in order to migrate your code and remove those warnings.
+
+The [Advanced DatabasePool](README.md#advanced-databasepool) chapter has been extended for the new `barrierWriteWithoutTransaction` method.
+
+
+### API Diff
+
+**Deprecations**
+
+```diff
+ class DatabaseQueue {
++    @available(*, deprecated)
+     func change(passphrase: String) throws
+ }
+ 
+ class DatabasePool {
++    @available(*, deprecated)
+     func change(passphrase: String) throws
+ }
+ 
+ struct Configuration {
++    @available(*, deprecated)
+     var passphrase: String?
+ }
+```
+
+**New Methods**
+
+```diff 
+ class DatabasePool {
++    func barrierWriteWithoutTransaction<T>(_ updates: (Database) throws -> T) rethrows -> T
++    func invalidateReadOnlyConnections()
+ }
+ 
+ class Database {
++    func usePassphrase(_ passphrase: String) throws
++    func changePassphrase(_ passphrase: String) throws
++    var lastErrorCode: ResultCode
++    var lastErrorMessage: String?
+ }
+```
+
+
+## 4.3.0
+
+Released August 28, 2019 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v4.2.1...v4.3.0)
+
+**New**
+
+- [#600](https://github.com/groue/GRDB.swift/pull/600) by [@kdubb](https://github.com/kdubb): Add support for tvOS
 
 
 ## 4.2.1
@@ -1165,7 +2037,7 @@ Released September 23, 2018 &bull; [diff](https://github.com/groue/GRDB.swift/co
 
 ### Documentation Diff
 
-- Enhanced visibility of the [Demo Application](DemoApps/GRDBDemoiOS)
+- Enhanced visibility of the [Demo Application](Documentation/DemoApps/GRDBDemoiOS)
 
 
 ## 3.3.0
@@ -1871,7 +2743,7 @@ Released September 17, 2017 &bull; [diff](https://github.com/groue/GRDB.swift/co
 **Fixed**: restored support for Swift Package Manager
 
 
-## 2.0
+## 2.0.0
 
 Released September 16, 2017 &bull; [diff](https://github.com/groue/GRDB.swift/compare/v1.3.0...v2.0)
 

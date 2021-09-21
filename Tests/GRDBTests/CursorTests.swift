@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 private struct TestError : Error { }
 
@@ -172,6 +168,82 @@ class CursorTests: GRDBTestCase {
             let cursor = AnyCursor([1, 2, 3, 4, 5])
             let suffix = try cursor.suffix(10)
             XCTAssertTrue(suffix == [1, 2, 3, 4, 5])
+        }
+    }
+    
+    func testRangeReplaceableCollection() throws {
+        func collect<Col, Cur>(_ cursor: Cur) throws -> Col
+        where Col: RangeReplaceableCollection, Cur: Cursor, Col.Element == Cur.Element
+        {
+            try Col(cursor)
+        }
+        
+        func collect<Col, Cur>(_ cursor: Cur, minimumCapacity: Int) throws -> Col
+        where Col: RangeReplaceableCollection, Cur: Cursor, Col.Element == Cur.Element
+        {
+            try Col(cursor, minimumCapacity: minimumCapacity)
+        }
+        
+        do {
+            let cursor = AnyCursor([1, 2, 1, 3])
+            let collection: [Int] = try collect(cursor)
+            XCTAssertEqual(collection, [1, 2, 1, 3])
+        }
+        
+        do {
+            let cursor = AnyCursor([1, 2, 1, 3])
+            let collection: [Int] = try collect(cursor, minimumCapacity: 100)
+            XCTAssertEqual(collection, [1, 2, 1, 3])
+        }
+    }
+    
+    func testSet() throws {
+        do {
+            let cursor = AnyCursor([1, 2, 1, 3])
+            let set = try Set(cursor)
+            XCTAssertEqual(set, [1, 2, 3])
+        }
+        
+        do {
+            let cursor = AnyCursor([1, 2, 1, 3])
+            let set = try Set(cursor, minimumCapacity: 100)
+            XCTAssertEqual(set, [1, 2, 3])
+        }
+    }
+    
+    func testDictionaryGrouping() throws {
+        do {
+            let cursor = AnyCursor<Int>([])
+            let dictionary = try Dictionary(grouping: cursor, by: { $0 % 2 })
+            XCTAssertEqual(dictionary, [:])
+        }
+        do {
+            let cursor = AnyCursor([1, 2, 3, 4, 5])
+            let dictionary = try Dictionary(grouping: cursor, by: { $0 % 2 })
+            XCTAssertEqual(dictionary, [0: [2, 4], 1: [1, 3, 5]])
+        }
+        do {
+            let cursor = AnyCursor([5, 4, 3, 2, 1])
+            let dictionary = try Dictionary(grouping: cursor, by: { $0 % 2 })
+            XCTAssertEqual(dictionary, [0: [4, 2], 1: [5, 3, 1]])
+        }
+        do {
+            let cursor = AnyCursor<Int>([1, 2, 3, 4, 5])
+            let dictionary = try Dictionary(minimumCapacity: 100, grouping: cursor, by: { $0 % 2 })
+            XCTAssertEqual(dictionary, [0: [2, 4], 1: [1, 3, 5]])
+        }
+    }
+    
+    func testDictionaryUniqueKeysWithValues() throws {
+        do {
+            let cursor = AnyCursor([(1, "a"), (2, "b"), (3, "a")])
+            let dictionary = try Dictionary(uniqueKeysWithValues: cursor)
+            XCTAssertEqual(dictionary, [1: "a", 2: "b", 3: "a"])
+        }
+        do {
+            let cursor = AnyCursor([(1, "a"), (2, "b"), (3, "a")])
+            let dictionary = try Dictionary(minimumCapacity: 100, uniqueKeysWithValues: cursor)
+            XCTAssertEqual(dictionary, [1: "a", 2: "b", 3: "a"])
         }
     }
 }

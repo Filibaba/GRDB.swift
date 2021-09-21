@@ -1,16 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    @testable import GRDBCustomSQLite
-#else
-    #if GRDBCIPHER
-        import SQLCipher
-    #elseif SWIFT_PACKAGE
-        import CSQLite
-    #else
-        import SQLite3
-    #endif
-    @testable import GRDB
-#endif
+@testable import GRDB
 
 class SelectStatementTests : GRDBTestCase {
     
@@ -36,8 +25,8 @@ class SelectStatementTests : GRDBTestCase {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             let sql = "SELECT 'Arthur' AS firstName, 'Martin' AS lastName UNION ALL SELECT 'Barbara', 'Gourde'"
-            let statement = try db.makeSelectStatement(sql: sql)
-            let cursor = statement.makeCursor()
+            let statement = try db.makeStatement(sql: sql)
+            let cursor = try statement.makeCursor()
             
             // Check that StatementCursor gives access to the raw SQLite API
             XCTAssertEqual(String(cString: sqlite3_column_name(cursor._statement.sqliteStatement, 0)), "firstName")
@@ -51,9 +40,9 @@ class SelectStatementTests : GRDBTestCase {
     
     func testStatementCursorStepFailure() throws {
         let dbQueue = try makeDatabaseQueue()
-        let customError = NSError(domain: "Custom", code: 0xDEAD)
-        dbQueue.add(function: DatabaseFunction("throw", argumentCount: 0, pure: true) { _ in throw customError })
         try dbQueue.inDatabase { db in
+            let customError = NSError(domain: "Custom", code: 0xDEAD)
+            db.add(function: DatabaseFunction("throw", argumentCount: 0, pure: true) { _ in throw customError })
             func test(_ cursor: StatementCursor) throws {
                 let sql = cursor._statement.sql
                 do {
@@ -63,7 +52,7 @@ class SelectStatementTests : GRDBTestCase {
                     XCTAssertEqual(error.resultCode, .SQLITE_ERROR)
                     XCTAssertEqual(error.message, "\(customError)")
                     XCTAssertEqual(error.sql!, sql)
-                    XCTAssertEqual(error.description, "SQLite error 1 with statement `\(sql)`: \(customError)")
+                    XCTAssertEqual(error.description, "SQLite error 1: \(customError) - while executing `\(sql)`")
                 }
                 do {
                     _ = try cursor.next()
@@ -73,15 +62,15 @@ class SelectStatementTests : GRDBTestCase {
                     // error. What we care about is that there is an error.
                 }
             }
-            try test(db.makeSelectStatement(sql: "SELECT throw(), NULL").makeCursor())
-            try test(db.makeSelectStatement(sql: "SELECT 0, throw(), NULL").makeCursor())
+            try test(db.makeStatement(sql: "SELECT throw(), NULL").makeCursor())
+            try test(db.makeStatement(sql: "SELECT 0, throw(), NULL").makeCursor())
         }
     }
     
     func testArrayStatementArguments() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
-            let statement = try db.makeSelectStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < ?")
+            let statement = try db.makeStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < ?")
             let ages = [20, 30, 40, 50]
             let counts = try ages.map { try Int.fetchOne(statement, arguments: [$0])! }
             XCTAssertEqual(counts, [1,2,2,3])
@@ -91,7 +80,7 @@ class SelectStatementTests : GRDBTestCase {
     func testStatementArgumentsSetterWithArray() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
-            let statement = try db.makeSelectStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < ?")
+            let statement = try db.makeStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < ?")
             let ages = [20, 30, 40, 50]
             let counts = try ages.map { (age: Int) -> Int in
                 statement.arguments = [age]
@@ -104,7 +93,7 @@ class SelectStatementTests : GRDBTestCase {
     func testDictionaryStatementArguments() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
-            let statement = try db.makeSelectStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < :age")
+            let statement = try db.makeStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < :age")
             let ageDicts: [[String: DatabaseValueConvertible?]] = [["age": 20], ["age": 30], ["age": 40], ["age": 50]]
             let counts = try ageDicts.map { dic -> Int in
                 // Make sure we don't trigger a failible initializer
@@ -118,7 +107,7 @@ class SelectStatementTests : GRDBTestCase {
     func testStatementArgumentsSetterWithDictionary() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
-            let statement = try db.makeSelectStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < :age")
+            let statement = try db.makeStatement(sql: "SELECT COUNT(*) FROM persons WHERE age < :age")
             let ageDicts: [[String: DatabaseValueConvertible?]] = [["age": 20], ["age": 30], ["age": 40], ["age": 50]]
             let counts = try ageDicts.map { ageDict -> Int in
                 statement.arguments = StatementArguments(ageDict)
@@ -132,45 +121,159 @@ class SelectStatementTests : GRDBTestCase {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             do {
-                _ = try db.makeSelectStatement(sql: "SELECT * FROM blah")
+                _ = try db.makeStatement(sql: "SELECT * FROM blah")
                 XCTFail()
             } catch let error as DatabaseError {
                 XCTAssertEqual(error.resultCode, .SQLITE_ERROR)
                 XCTAssertEqual(error.message!, "no such table: blah")
                 XCTAssertEqual(error.sql!, "SELECT * FROM blah")
-                XCTAssertEqual(error.description, "SQLite error 1 with statement `SELECT * FROM blah`: no such table: blah")
+                XCTAssertEqual(error.description, "SQLite error 1: no such table: blah - while executing `SELECT * FROM blah`")
             }
         }
     }
 
     func testCachedSelectStatementStepFailure() throws {
         let dbQueue = try makeDatabaseQueue()
-        var needsThrow = false
-        dbQueue.add(function: DatabaseFunction("bomb", argumentCount: 0, pure: false) { _ in
-            if needsThrow {
-                throw DatabaseError(message: "boom")
-            }
-            return "success"
-        })
         try dbQueue.inDatabase { db in
+            var needsThrow = false
+            db.add(function: DatabaseFunction("bomb", argumentCount: 0, pure: false) { _ in
+                if needsThrow {
+                    throw DatabaseError(message: "boom")
+                }
+                return "success"
+            })
             let sql = "SELECT bomb()"
             
             needsThrow = false
-            XCTAssertEqual(try String.fetchAll(db.cachedSelectStatement(sql: sql)), ["success"])
+            XCTAssertEqual(try String.fetchAll(db.cachedStatement(sql: sql)), ["success"])
             
             do {
                 needsThrow = true
-                _ = try String.fetchAll(db.cachedSelectStatement(sql: sql))
+                _ = try String.fetchAll(db.cachedStatement(sql: sql))
                 XCTFail()
             } catch let error as DatabaseError {
                 XCTAssertEqual(error.resultCode, .SQLITE_ERROR)
                 XCTAssertEqual(error.message!, "boom")
                 XCTAssertEqual(error.sql!, sql)
-                XCTAssertEqual(error.description, "SQLite error 1 with statement `\(sql)`: boom")
+                XCTAssertEqual(error.description, "SQLite error 1: boom - while executing `\(sql)`")
             }
             
             needsThrow = false
-            XCTAssertEqual(try String.fetchAll(db.cachedSelectStatement(sql: sql)), ["success"])
+            XCTAssertEqual(try String.fetchAll(db.cachedStatement(sql: sql)), ["success"])
+        }
+    }
+    
+    func testConsumeMultipleStatements() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.writeWithoutTransaction { db in
+            do {
+                // SQL, no argument
+                let statements = try db.allStatements(sql: """
+                    SELECT age FROM persons ORDER BY age;
+                    SELECT age FROM persons ORDER BY age DESC;
+                    """)
+                let ages = try Array(statements.flatMap { try Int.fetchCursor($0) })
+                XCTAssertEqual(ages, [13, 26, 41, 41, 26, 13])
+            }
+            do {
+                // Literal, no argument
+                let statements = try db.allStatements(literal: """
+                    SELECT age FROM persons ORDER BY age;
+                    SELECT age FROM persons ORDER BY age DESC;
+                    """)
+                let ages = try Array(statements.flatMap { try Int.fetchCursor($0) })
+                XCTAssertEqual(ages, [13, 26, 41, 41, 26, 13])
+            }
+            
+            do {
+                // SQL, missing arguments
+                let statements = try db.allStatements(sql: """
+                    SELECT count(*) FROM persons WHERE age > ?;
+                    SELECT count(*) FROM persons WHERE age < ?;
+                    """)
+                let counts = try Array(statements.map { try
+                    Int.fetchOne($0, arguments: [30])!
+                })
+                XCTAssertEqual(counts, [1, 2])
+            }
+            do {
+                // Literal, missing arguments
+                let statements = try db.allStatements(literal: """
+                    SELECT count(*) FROM persons WHERE age > ?;
+                    SELECT count(*) FROM persons WHERE age < ?;
+                    """)
+                let counts = try Array(statements.map { try
+                    Int.fetchOne($0, arguments: [30])!
+                })
+                XCTAssertEqual(counts, [1, 2])
+            }
+            
+            do {
+                // SQL, matching arguments
+                let statements = try db.allStatements(sql: """
+                    SELECT name FROM persons WHERE name = ?;
+                    SELECT name FROM persons WHERE age > ? ORDER BY name;
+                    """, arguments: ["Arthur", 20])
+                let names = try Array(statements.map { try String.fetchAll($0) })
+                XCTAssertEqual(names, [["Arthur"], ["Arthur", "Barbara"]])
+            }
+            do {
+                // Literal, matching arguments
+                let statements = try db.allStatements(literal: """
+                    SELECT name FROM persons WHERE name = \("Arthur");
+                    SELECT name FROM persons WHERE age > \(20) ORDER BY name;
+                    """)
+                let names = try Array(statements.map { try String.fetchAll($0) })
+                XCTAssertEqual(names, [["Arthur"], ["Arthur", "Barbara"]])
+            }
+            
+            do {
+                // SQL, too few arguments
+                let statements = try db.allStatements(sql: """
+                    SELECT name FROM persons WHERE name = ?;
+                    SELECT name FROM persons WHERE age > ? ORDER BY name;
+                    """, arguments: ["Arthur"])
+                _ = try Array(statements.map { try String.fetchAll($0) })
+                XCTFail("Expected Error")
+            } catch DatabaseError.SQLITE_MISUSE {
+                // OK
+            }
+            do {
+                // Literal, too few arguments
+                let statements = try db.allStatements(literal: """
+                    SELECT name FROM persons WHERE name = \("Arthur");
+                    SELECT name FROM persons WHERE age > ? ORDER BY name;
+                    """)
+                _ = try Array(statements.map { try String.fetchAll($0) })
+                XCTFail("Expected Error")
+            } catch DatabaseError.SQLITE_MISUSE {
+                // OK
+            }
+            
+            do {
+                // SQL, too many arguments
+                let statements = try db.allStatements(sql: """
+                    SELECT name FROM persons WHERE name = ?;
+                    SELECT name FROM persons WHERE age > ? ORDER BY name;
+                    """, arguments: ["Arthur", 20, 55])
+                _ = try Array(statements.map { try String.fetchAll($0) })
+                XCTFail("Expected Error")
+            } catch DatabaseError.SQLITE_MISUSE {
+                // OK
+            }
+            
+            do {
+                // Mix statement kinds
+                let statements = try db.allStatements(literal: """
+                    CREATE TABLE t(a);
+                    INSERT INTO t VALUES (0);
+                    SELECT a FROM t ORDER BY a;
+                    INSERT INTO t VALUES (1);
+                    SELECT a FROM t ORDER BY a;
+                    """)
+                let values = try Array(statements.map { try Int.fetchAll($0) })
+                XCTAssertEqual(values, [[], [], [0], [], [0, 1]])
+            }
         }
     }
     
@@ -187,7 +290,7 @@ class SelectStatementTests : GRDBTestCase {
                 }
                 
                 func observes(eventsOfKind eventKind: DatabaseEventKind) -> Bool {
-                    return region.isModified(byEventsOfKind: eventKind)
+                    region.isModified(byEventsOfKind: eventKind)
                 }
                 
                 func databaseDidChange(with event: DatabaseEvent) {
@@ -228,16 +331,16 @@ class SelectStatementTests : GRDBTestCase {
             try db.execute(sql: "CREATE TRIGGER table5trigger AFTER INSERT ON table5 BEGIN INSERT INTO table1 (id3, id4, a, b) VALUES (NULL, NULL, 0, 0); END")
             
             let statements = try [
-                db.makeSelectStatement(sql: "SELECT * FROM table1"),
-                db.makeSelectStatement(sql: "SELECT id, id3, a FROM table1"),
-                db.makeSelectStatement(sql: "SELECT table1.id, table1.a, table2.a FROM table1 JOIN table2 ON table1.id = table2.id"),
+                db.makeStatement(sql: "SELECT * FROM table1"),
+                db.makeStatement(sql: "SELECT id, id3, a FROM table1"),
+                db.makeStatement(sql: "SELECT table1.id, table1.a, table2.a FROM table1 JOIN table2 ON table1.id = table2.id"),
                 
                 // This last request triggers its observer or not, depending on the SQLite version.
                 // Before SQLite 3.19.0, its region is doubtful, and every database change is deemed impactful.
                 // Starting SQLite 3.19.0, it knows that only table1 is involved.
                 //
                 // See doubtfulCountFunction below
-                db.makeSelectStatement(sql: "SELECT COUNT(*) FROM table1"),
+                db.makeStatement(sql: "SELECT COUNT(*) FROM table1"),
             ]
             
             let doubtfulCountFunction = (sqlite3_libversion_number() < 3019000)
@@ -256,41 +359,41 @@ class SelectStatementTests : GRDBTestCase {
             try db.execute(sql: "INSERT INTO table3 (id) VALUES (1)")
             try db.execute(sql: "INSERT INTO table4 (id) VALUES (1)")
             try db.execute(sql: "INSERT INTO table1 (id, a, b, id3, id4) VALUES (NULL, 0, 0, 1, 1)")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, true, true, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, true, true, true])
             
             try db.execute(sql: "INSERT INTO table2 (id, a, b) VALUES (NULL, 0, 0)")
-            XCTAssertEqual(observers.map { $0.triggered }, [false, false, true, doubtfulCountFunction])
+            XCTAssertEqual(observers.map(\.triggered), [false, false, true, doubtfulCountFunction])
             
             try db.execute(sql: "UPDATE table1 SET a = 1")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, true, true, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, true, true, true])
             
             try db.execute(sql: "UPDATE table1 SET b = 1")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, false, false, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, false, false, true])
             
             try db.execute(sql: "UPDATE table2 SET a = 1")
-            XCTAssertEqual(observers.map { $0.triggered }, [false, false, true, doubtfulCountFunction])
+            XCTAssertEqual(observers.map(\.triggered), [false, false, true, doubtfulCountFunction])
             
             try db.execute(sql: "UPDATE table2 SET b = 1")
-            XCTAssertEqual(observers.map { $0.triggered }, [false, false, false, doubtfulCountFunction])
+            XCTAssertEqual(observers.map(\.triggered), [false, false, false, doubtfulCountFunction])
             
             try db.execute(sql: "UPDATE table3 SET id = 2 WHERE id = 1")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, true, false, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, true, false, true])
             
             try db.execute(sql: "UPDATE table4 SET id = 2 WHERE id = 1")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, false, false, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, false, false, true])
             
             try db.execute(sql: "DELETE FROM table4")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, false, false, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, false, false, true])
             
             try db.execute(sql: "INSERT INTO table4 (id) VALUES (1)")
             try db.execute(sql: "DELETE FROM table4")
-            XCTAssertEqual(observers.map { $0.triggered }, [false, false, false, doubtfulCountFunction])
+            XCTAssertEqual(observers.map(\.triggered), [false, false, false, doubtfulCountFunction])
             
             try db.execute(sql: "DELETE FROM table3")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, true, true, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, true, true, true])
             
             try db.execute(sql: "INSERT INTO table5 (id) VALUES (NULL)")
-            XCTAssertEqual(observers.map { $0.triggered }, [true, true, true, true])
+            XCTAssertEqual(observers.map(\.triggered), [true, true, true, true])
         }
     }
 }

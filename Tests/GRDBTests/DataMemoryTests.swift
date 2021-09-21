@@ -1,16 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    @testable import GRDBCustomSQLite
-#else
-    #if GRDBCIPHER
-        import SQLCipher
-    #elseif SWIFT_PACKAGE
-        import CSQLite
-    #else
-        import SQLite3
-    #endif
-    @testable import GRDB
-#endif
+@testable import GRDB
 
 class DataMemoryTests: GRDBTestCase {
     
@@ -22,70 +11,86 @@ class DataMemoryTests: GRDBTestCase {
             // https://forums.swift.org/t/swift-5-how-to-test-data-bytesnocopydeallocator/20299/2?u=gwendal.roue
             let data = Data(repeating: 0xaa, count: 15)
             
-            let rows = try Row.fetchCursor(db, sql: "SELECT ?", arguments: [data])
-            while let row = try rows.next() {
-                let blobPointer = sqlite3_column_blob(row.sqliteStatement, 0)
-                
-                do {
-                    // This data should be copied:
-                    let copiedData: Data = row[0]
-                    XCTAssertEqual(copiedData, data)
-                    copiedData.withBaseAddress { dataPointer in
-                        XCTAssertNotEqual(dataPointer, blobPointer)
-                    }
-                }
-                
-                do {
-                    // This data should not be copied
-                    let nonCopiedData = row.dataNoCopy(atIndex: 0)!
-                    XCTAssertEqual(nonCopiedData, data)
-                    nonCopiedData.withBaseAddress { dataPointer in
-                        XCTAssertEqual(dataPointer, blobPointer)
-                    }
-                }
-            }
-            
-            let row = try Row.fetchOne(db, sql: "SELECT ?", arguments: [data])!
-            let dbValue = row.first!.1 // TODO: think about exposing a (column:,databaseValue:) tuple
-            switch dbValue.storage {
-            case .blob(let data):
-                data.withBaseAddress { dataPointer in
+            do {
+                let rows = try Row.fetchCursor(db, sql: "SELECT ?", arguments: [data])
+                while let row = try rows.next() {
+                    let blobPointer = sqlite3_column_blob(row.sqliteStatement, 0)
+                    
                     do {
-                        // This data should not be copied:
-                        let nonCopiedData: Data = row[0]
-                        XCTAssertEqual(nonCopiedData, data)
-                        nonCopiedData.withBaseAddress { nonCopiedBytes in
-                            XCTAssertEqual(nonCopiedBytes, dataPointer)
+                        // This data should be copied:
+                        let copiedData: Data = row[0]
+                        XCTAssertEqual(copiedData, data)
+                        copiedData.withUnsafeBytes {
+                            XCTAssertNotEqual($0.baseAddress, blobPointer)
                         }
                     }
                     
                     do {
-                        // This data should not be copied:
+                        // This data should not be copied
                         let nonCopiedData = row.dataNoCopy(atIndex: 0)!
                         XCTAssertEqual(nonCopiedData, data)
-                        nonCopiedData.withBaseAddress { nonCopiedBytes in
-                            XCTAssertEqual(nonCopiedBytes, dataPointer)
+                        nonCopiedData.withUnsafeBytes {
+                            XCTAssertEqual($0.baseAddress, blobPointer)
                         }
                     }
                 }
-            default:
-                XCTFail("Not a blob")
+            }
+            
+            do {
+                let adapter = ScopeAdapter(["nested": SuffixRowAdapter(fromIndex: 0)])
+                let rows = try Row.fetchCursor(db, sql: "SELECT ?", arguments: [data], adapter: adapter)
+                while let row = try rows.next() {
+                    let blobPointer = sqlite3_column_blob(row.unadapted.sqliteStatement, 0)
+                    let nestedRow = row.scopes["nested"]!
+                    
+                    do {
+                        // This data should be copied:
+                        let copiedData: Data = nestedRow[0]
+                        XCTAssertEqual(copiedData, data)
+                        copiedData.withUnsafeBytes {
+                            XCTAssertNotEqual($0.baseAddress, blobPointer)
+                        }
+                    }
+                    
+                    do {
+                        // This data should not be copied
+                        let nonCopiedData = nestedRow.dataNoCopy(atIndex: 0)!
+                        XCTAssertEqual(nonCopiedData, data)
+                        nonCopiedData.withUnsafeBytes {
+                            XCTAssertEqual($0.baseAddress, blobPointer)
+                        }
+                    }
+                }
+            }
+            
+            do {
+                let row = try Row.fetchOne(db, sql: "SELECT ?", arguments: [data])!
+                let dbValue = row.first!.1 // TODO: think about exposing a (column:,databaseValue:) tuple
+                switch dbValue.storage {
+                case .blob(let data):
+                    data.withUnsafeBytes { buffer in
+                        do {
+                            // This data should not be copied:
+                            let nonCopiedData: Data = row[0]
+                            XCTAssertEqual(nonCopiedData, data)
+                            nonCopiedData.withUnsafeBytes { nonCopiedBuffer in
+                                XCTAssertEqual(nonCopiedBuffer.baseAddress, buffer.baseAddress)
+                            }
+                        }
+                        
+                        do {
+                            // This data should not be copied:
+                            let nonCopiedData = row.dataNoCopy(atIndex: 0)!
+                            XCTAssertEqual(nonCopiedData, data)
+                            nonCopiedData.withUnsafeBytes { nonCopiedBuffer in
+                                XCTAssertEqual(nonCopiedBuffer.baseAddress, buffer.baseAddress)
+                            }
+                        }
+                    }
+                default:
+                    XCTFail("Not a blob")
+                }
             }
         }
-    }
-}
-
-extension Data {
-    // Helper for comparing data heap pointers, depending on the Swift version
-    fileprivate func withBaseAddress(_ body: (UnsafeRawPointer?) -> Void) {
-        #if swift(>=5.0)
-        withUnsafeBytes {
-            body($0.baseAddress)
-        }
-        #else
-        withUnsafeBytes {
-            body(UnsafeRawPointer($0))
-        }
-        #endif
     }
 }

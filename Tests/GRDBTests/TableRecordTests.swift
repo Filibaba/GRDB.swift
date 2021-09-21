@@ -1,25 +1,21 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 private struct RecordStruct: TableRecord { }
 private struct CustomizedRecordStruct: TableRecord { static let databaseTableName = "CustomizedRecordStruct" }
 private class RecordClass: TableRecord { }
 private class RecordSubClass: RecordClass { }
-private class CustomizedRecordClass: TableRecord { class var databaseTableName: String { return "CustomizedRecordClass" } }
-private class CustomizedRecordSubClass: CustomizedRecordClass { override class var databaseTableName: String { return "CustomizedRecordSubClass" } }
-private class CustomizedPlainRecord: Record { override class var databaseTableName: String { return "CustomizedPlainRecord" } }
+private class CustomizedRecordClass: TableRecord { class var databaseTableName: String { "CustomizedRecordClass" } }
+private class CustomizedRecordSubClass: CustomizedRecordClass { override class var databaseTableName: String { "CustomizedRecordSubClass" } }
+private class CustomizedPlainRecord: Record { override class var databaseTableName: String { "CustomizedPlainRecord" } }
 private enum Namespace {
     struct RecordStruct: TableRecord { }
     struct CustomizedRecordStruct: TableRecord { static let databaseTableName = "CustomizedRecordStruct" }
     class RecordClass: TableRecord { }
     class RecordSubClass: RecordClass { }
-    class CustomizedRecordClass: TableRecord { class var databaseTableName: String { return "CustomizedRecordClass" } }
-    class CustomizedRecordSubClass: CustomizedRecordClass { override class var databaseTableName: String { return "CustomizedRecordSubClass" } }
-    class CustomizedPlainRecord: Record { override class var databaseTableName: String { return "CustomizedPlainRecord" } }
+    class CustomizedRecordClass: TableRecord { class var databaseTableName: String { "CustomizedRecordClass" } }
+    class CustomizedRecordSubClass: CustomizedRecordClass { override class var databaseTableName: String { "CustomizedRecordSubClass" } }
+    class CustomizedPlainRecord: Record { override class var databaseTableName: String { "CustomizedPlainRecord" } }
 }
 struct HTTPRequest: TableRecord { }
 struct TOEFL: TableRecord { }
@@ -31,9 +27,9 @@ class TableRecordTests: GRDBTestCase {
         struct InnerCustomizedRecordStruct: TableRecord { static let databaseTableName = "InnerCustomizedRecordStruct" }
         class InnerRecordClass: TableRecord { }
         class InnerRecordSubClass: InnerRecordClass { }
-        class InnerCustomizedRecordClass: TableRecord { class var databaseTableName: String { return "InnerCustomizedRecordClass" } }
-        class InnerCustomizedRecordSubClass: InnerCustomizedRecordClass { override class var databaseTableName: String { return "InnerCustomizedRecordSubClass" } }
-        class InnerCustomizedPlainRecord: Record { override class var databaseTableName: String { return "InnerCustomizedPlainRecord" } }
+        class InnerCustomizedRecordClass: TableRecord { class var databaseTableName: String { "InnerCustomizedRecordClass" } }
+        class InnerCustomizedRecordSubClass: InnerCustomizedRecordClass { override class var databaseTableName: String { "InnerCustomizedRecordSubClass" } }
+        class InnerCustomizedPlainRecord: Record { override class var databaseTableName: String { "InnerCustomizedPlainRecord" } }
         
         XCTAssertEqual(RecordStruct.databaseTableName, "recordStruct")
         XCTAssertEqual(CustomizedRecordStruct.databaseTableName, "CustomizedRecordStruct")
@@ -62,9 +58,7 @@ class TableRecordTests: GRDBTestCase {
         XCTAssertEqual(HTTPRequest.databaseTableName, "httpRequest")
         XCTAssertEqual(TOEFL.databaseTableName, "toefl")
         
-        func tableName<T: TableRecord>(_ type: T.Type) -> String {
-            return T.databaseTableName
-        }
+        func tableName<T: TableRecord>(_ type: T.Type) -> String { T.databaseTableName }
         
         XCTAssertEqual(tableName(RecordStruct.self), "recordStruct")
         XCTAssertEqual(tableName(CustomizedRecordStruct.self), "CustomizedRecordStruct")
@@ -129,6 +123,123 @@ class TableRecordTests: GRDBTestCase {
             try db.execute(sql: "CREATE TABLE t1(a,b,c)")
             _ = try Row.fetchAll(db, Record.all())
             XCTAssertEqual(lastSQLQuery, "SELECT \"a\", \"b\" FROM \"t1\"")
+        }
+    }
+    
+    func testRecordInAttachedDatabase() throws {
+        #if SQLITE_HAS_CODEC
+        // Avoid error due to key not being provided:
+        // file is not a database - while executing `ATTACH DATABASE...`
+        throw XCTSkip("This test does not suppport encrypted databases")
+        #endif
+        
+        struct Team: Codable, PersistableRecord, FetchableRecord, Equatable {
+            var id: Int64
+            var name: String
+        }
+        
+        struct Player: Codable, PersistableRecord, FetchableRecord, Equatable {
+            var id: Int64
+            var teamID: Int64
+            var name: String
+            var email: String
+        }
+        
+        struct PlayerInfo: Decodable, FetchableRecord, Equatable {
+            var player: Player
+            var team: Team
+        }
+        
+        let db1 = try makeDatabaseQueue(filename: "db1.sqlite")
+        try db1.write { db in
+            try db.create(table: "team") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("name", .text).notNull()
+            }
+            try db.create(table: "player") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("teamID", .integer).notNull().references("team")
+                t.column("name", .text).notNull()
+                t.column("email", .text).notNull().unique()
+            }
+        }
+        
+        let db2 = try makeDatabaseQueue(filename: "db2.sqlite")
+        try db2.writeWithoutTransaction { db in
+            try db.execute(literal: "ATTACH DATABASE \(db1.path) AS db1")
+            try XCTAssertEqual(Player.fetchCount(db), 0)
+            let team = Team(id: 1, name: "Arthur")
+            let player = Player(id: 1, teamID: 1, name: "Arthur", email: "arthur@example.com")
+            
+            try team.insert(db)
+            try player.insert(db)
+            
+            try XCTAssertEqual(Player.orderByPrimaryKey().fetchOne(db)?.name, "Arthur")
+            try XCTAssertEqual(
+                Player
+                    .including(required: Player.belongsTo(Team.self))
+                    .asRequest(of: PlayerInfo.self)
+                    .fetchOne(db),
+                PlayerInfo(player: player, team: team))
+        }
+    }
+    
+    func testCrossAttachedDatabaseAssociation() throws {
+        #if SQLITE_HAS_CODEC
+        // Avoid error due to key not being provided:
+        // file is not a database - while executing `ATTACH DATABASE...`
+        throw XCTSkip("This test does not suppport encrypted databases")
+        #endif
+        
+        struct Team: Codable, PersistableRecord, FetchableRecord, Equatable {
+            var id: Int64
+            var name: String
+        }
+        
+        struct Player: Codable, PersistableRecord, FetchableRecord, Equatable {
+            var id: Int64
+            var teamID: Int64
+            var name: String
+            var email: String
+        }
+        
+        struct PlayerInfo: Decodable, FetchableRecord, Equatable {
+            var player: Player
+            var team: Team
+        }
+        
+        let db1 = try makeDatabaseQueue(filename: "db1.sqlite")
+        try db1.write { db in
+            try db.create(table: "team") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("name", .text).notNull()
+            }
+        }
+        
+        let db2 = try makeDatabaseQueue(filename: "db2.sqlite")
+        try db2.writeWithoutTransaction { db in
+            try db.create(table: "player") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("teamID", .integer).notNull()
+                t.column("name", .text).notNull()
+                t.column("email", .text).notNull().unique()
+            }
+            
+            try db.execute(literal: "ATTACH DATABASE \(db1.path) AS db1")
+            try XCTAssertEqual(Player.fetchCount(db), 0)
+            let team = Team(id: 1, name: "Arthur")
+            let player = Player(id: 1, teamID: 1, name: "Arthur", email: "arthur@example.com")
+            
+            try team.insert(db)
+            try player.insert(db)
+            
+            try XCTAssertEqual(Player.orderByPrimaryKey().fetchOne(db)?.name, "Arthur")
+            try XCTAssertEqual(
+                Player
+                    .including(required: Player.belongsTo(Team.self, using: ForeignKey(["teamID"])))
+                    .asRequest(of: PlayerInfo.self)
+                    .fetchOne(db),
+                PlayerInfo(player: player, team: team))
         }
     }
 }

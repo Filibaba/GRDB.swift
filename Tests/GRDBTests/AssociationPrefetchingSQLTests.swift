@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 private struct A: TableRecord { }
 private struct B: TableRecord { }
@@ -87,7 +83,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -103,7 +99,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
             // Request with avoided prefetch
             do {
                 let request = A
-                    .filter(false)
+                    .none()
                     .including(all: A
                         .hasMany(B.self)
                         .orderByPrimaryKey())
@@ -112,7 +108,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM \"a\" WHERE 0 ORDER BY \"cola1\"
@@ -138,7 +134,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" \
@@ -161,7 +157,39 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
         }
     }
     
+    func testIncludingAllHasManyScalar() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.read { db in
+            // Plain request
+            do {
+                let request = A
+                    .including(all: A
+                                .hasMany(B.self)
+                                .select(Column("colb2"))
+                                .distinct()
+                                .order(Column("colb2")))
+                    .orderByPrimaryKey()
+                
+                sqlQueries.removeAll()
+                _ = try Row.fetchAll(db, request)
+                
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "a" ORDER BY "cola1"
+                    """,
+                    """
+                    SELECT DISTINCT "colb2", "colb2" AS "grdb_colb2" \
+                    FROM "b" \
+                    WHERE "colb2" IN (1, 2, 3) \
+                    ORDER BY "colb2"
+                    """])
+            }
+        }
+    }
+    
     func testIncludingAllHasManyWithCompoundForeignKey() throws {
+        // We can use the CTE technique
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.write { db in
             try db.create(table: "parent") { t in
@@ -170,17 +198,17 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 t.primaryKey(["parentA", "parentB"])
             }
             try db.create(table: "child") { t in
-                t.column("parentA", .text)
-                t.column("parentB", .text)
+                t.column("pA", .text)
+                t.column("pB", .text)
                 t.column("name", .text)
-                t.foreignKey(["parentA", "parentB"], references: "parent")
+                t.foreignKey(["pA", "pB"], references: "parent")
             }
             try db.execute(sql: """
                 INSERT INTO parent (parentA, parentB) VALUES ('foo', 'bar');
                 INSERT INTO parent (parentA, parentB) VALUES ('baz', 'qux');
-                INSERT INTO child (parentA, parentB, name) VALUES ('foo', 'bar', 'foobar1');
-                INSERT INTO child (parentA, parentB, name) VALUES ('foo', 'bar', 'foobar2');
-                INSERT INTO child (parentA, parentB, name) VALUES ('baz', 'qux', 'bazqux1');
+                INSERT INTO child (pA, pB, name) VALUES ('foo', 'bar', 'foobar1');
+                INSERT INTO child (pA, pB, name) VALUES ('foo', 'bar', 'foobar2');
+                INSERT INTO child (pA, pB, name) VALUES ('baz', 'qux', 'bazqux1');
                 """)
             
             struct Parent: TableRecord { }
@@ -196,22 +224,22 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "parent" ORDER BY "parentA", "parentB"
                     """,
                     """
-                    SELECT *, "parentA" AS "grdb_parentA", "parentB" AS "grdb_parentB" \
-                    FROM "child" \
-                    WHERE (("parentA" = 'baz') AND ("parentB" = 'qux')) OR (("parentA" = 'foo') AND ("parentB" = 'bar'))
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent") \
+                    SELECT *, "pA" AS "grdb_pA", "pB" AS "grdb_pB" \
+                    FROM "child" WHERE ("pA", "pB") IN "grdb_base"
                     """])
             }
             
             // Request with avoided prefetch
             do {
                 let request = Parent
-                    .filter(false)
+                    .none()
                     .including(all: Parent
                         .hasMany(Child.self))
                     .orderByPrimaryKey()
@@ -219,7 +247,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "parent" WHERE 0 ORDER BY "parentA", "parentB"
@@ -238,19 +266,21 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "parent" WHERE "parentA" = 'foo' ORDER BY "parentA", "parentB"
                     """,
                     """
-                    SELECT *, "parentA" AS "grdb_parentA", "parentB" AS "grdb_parentB" \
-                    FROM "child" WHERE ("name" = 'foo') AND (("parentA" = 'foo') AND ("parentB" = 'bar'))
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent" WHERE "parentA" = 'foo') \
+                    SELECT *, "pA" AS "grdb_pA", "pB" AS "grdb_pB" \
+                    FROM "child" \
+                    WHERE ("name" = 'foo') AND (("pA", "pB") IN "grdb_base")
                     """])
             }
         }
     }
-
+    
     func testIncludingAllHasManyIncludingAllHasMany() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.read { db in
@@ -268,7 +298,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -292,7 +322,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 let request = A
                     .including(all: A
                         .hasMany(C.self)
-                        .filter(false)
+                        .none()
                         .including(all: C
                             .hasMany(D.self)
                             .orderByPrimaryKey())
@@ -302,7 +332,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -354,7 +384,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * \
@@ -402,6 +432,154 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
         }
     }
     
+    func testIncludingAllHasManyIncludingAllHasManyWithCompoundForeignKey() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.write { db in
+            try db.create(table: "parent") { t in
+                t.column("parentA", .text)
+                t.column("parentB", .text)
+                t.column("name", .text)
+                t.primaryKey(["parentA", "parentB"])
+            }
+            try db.create(table: "child") { t in
+                t.column("childA", .text)
+                t.column("childB", .text)
+                t.column("pA", .text)
+                t.column("pB", .text)
+                t.column("name", .text)
+                t.primaryKey(["childA", "childB"])
+                t.foreignKey(["pA", "pB"], references: "parent")
+            }
+            try db.create(table: "grandchild") { t in
+                t.column("cA", .text)
+                t.column("cB", .text)
+                t.column("name", .text)
+                t.foreignKey(["cA", "cB"], references: "child")
+            }
+            try db.execute(sql: """
+                INSERT INTO parent (parentA, parentB, name) VALUES ('foo', 'bar', 'foo');
+                INSERT INTO parent (parentA, parentB, name) VALUES ('baz', 'qux', 'foo');
+                INSERT INTO child (childA, childB, pA, pB, name) VALUES ('a', 'b', 'foo', 'bar', 'blue');
+                INSERT INTO child (childA, childB, pA, pB, name) VALUES ('c', 'd', 'foo', 'bar', 'pink');
+                INSERT INTO child (childA, childB, pA, pB, name) VALUES ('e', 'f', 'baz', 'qux', 'blue');
+                INSERT INTO grandchild (cA, cB, name) VALUES ('a', 'b', 'dog');
+                INSERT INTO grandchild (cA, cB, name) VALUES ('a', 'b', 'cat');
+                INSERT INTO grandchild (cA, cB, name) VALUES ('c', 'd', 'cat');
+                INSERT INTO grandchild (cA, cB, name) VALUES ('e', 'f', 'dog');
+                """)
+            
+            struct Parent: TableRecord { }
+            struct Child: TableRecord { }
+            struct GrandChild: TableRecord { }
+            
+            // Plain request
+            do {
+                let request = Parent
+                    .including(all: Parent.hasMany(Child.self)
+                                .including(all: Child.hasMany(GrandChild.self)))
+                    .orderByPrimaryKey()
+                
+                sqlQueries.removeAll()
+                _ = try Row.fetchAll(db, request)
+                
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "parent" ORDER BY "parentA", "parentB"
+                    """,
+                    """
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent") \
+                    SELECT *, "pA" AS "grdb_pA", "pB" AS "grdb_pB" \
+                    FROM "child" WHERE ("pA", "pB") IN "grdb_base"
+                    """,
+                    """
+                    WITH "grdb_base" AS (\
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent") \
+                    SELECT "childA", "childB" FROM "child" \
+                    WHERE ("pA", "pB") IN "grdb_base"\
+                    ) \
+                    SELECT *, "cA" AS "grdb_cA", "cB" AS "grdb_cB" \
+                    FROM "grandChild" WHERE ("cA", "cB") IN "grdb_base"
+                    """])
+            }
+            
+            // Request with avoided prefetch
+            do {
+                let request = Parent
+                    .none()
+                    .including(all: Parent.hasMany(Child.self)
+                                .including(all: Child.hasMany(GrandChild.self)))
+                    .orderByPrimaryKey()
+
+                sqlQueries.removeAll()
+                _ = try Row.fetchAll(db, request)
+                
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "parent" WHERE 0 ORDER BY "parentA", "parentB"
+                    """])
+            }
+            do {
+                let request = Parent
+                    .including(all: Parent.hasMany(Child.self)
+                                .none()
+                                .including(all: Child.hasMany(GrandChild.self)))
+                    .orderByPrimaryKey()
+
+                sqlQueries.removeAll()
+                _ = try Row.fetchAll(db, request)
+                
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "parent" ORDER BY "parentA", "parentB"
+                    """,
+                    """
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent") \
+                    SELECT *, "pA" AS "grdb_pA", "pB" AS "grdb_pB" \
+                    FROM "child" \
+                    WHERE 0 AND (("pA", "pB") IN "grdb_base")
+                    """])
+            }
+
+            // Request with filters
+            do {
+                let request = Parent
+                    .including(all: Parent.hasMany(Child.self)
+                                .including(all: Child.hasMany(GrandChild.self)
+                                            .filter(Column("name") == "dog"))
+                                .filter(Column("name") == "blue"))
+                    .filter(Column("name") == "foo")
+                    .orderByPrimaryKey()
+
+                sqlQueries.removeAll()
+                _ = try Row.fetchAll(db, request)
+                
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "parent" WHERE "name" = 'foo' ORDER BY "parentA", "parentB"
+                    """,
+                    """
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent" WHERE "name" = 'foo') \
+                    SELECT *, "pA" AS "grdb_pA", "pB" AS "grdb_pB" \
+                    FROM "child" WHERE ("name" = 'blue') AND (("pA", "pB") IN "grdb_base")
+                    """,
+                    """
+                    WITH "grdb_base" AS (\
+                    WITH "grdb_base" AS (SELECT "parentA", "parentB" FROM "parent" WHERE "name" = 'foo') \
+                    SELECT "childA", "childB" FROM "child" \
+                    WHERE ("name" = 'blue') AND (("pA", "pB") IN "grdb_base")\
+                    ) \
+                    SELECT *, "cA" AS "grdb_cA", "cB" AS "grdb_cB" \
+                    FROM "grandChild" \
+                    WHERE ("name" = 'dog') AND (("cA", "cB") IN "grdb_base")
+                    """])
+            }
+        }
+    }
+    
     func testIncludingAllHasManyIncludingRequiredOrOptionalHasMany() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.read { db in
@@ -419,7 +597,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -438,7 +616,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 let request = A
                     .including(all: A
                         .hasMany(C.self)
-                        .filter(false)
+                        .none()
                         .including(required: C
                             .hasMany(D.self)
                             .orderByPrimaryKey())
@@ -448,7 +626,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -501,7 +679,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * \
@@ -543,7 +721,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -579,7 +757,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" \
@@ -623,7 +801,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "b" ORDER BY "colb1"
@@ -658,7 +836,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "b" ORDER BY "colb1"
@@ -696,7 +874,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "b" ORDER BY "colb1"
@@ -738,7 +916,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "b" ORDER BY "colb1"
@@ -772,7 +950,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -790,8 +968,8 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 // This request is an example of what users are unlikely to
                 // want, because of the shared key between the two different
                 // pivot associations.
-                // However, A.hasMany(C.self) does not conflict. Thos is an
-                // indirect proof that it feeds an association kt, "as", which
+                // However, A.hasMany(C.self) does not conflict. This is an
+                // indirect proof that it feeds an association key, "as", which
                 // is distinc from "a" (A.hasOne(C.self)).
                 let request = A
                     .including(all: A
@@ -812,7 +990,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -854,7 +1032,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -900,7 +1078,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT * FROM "a" ORDER BY "cola1"
@@ -941,7 +1119,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT "b".*, "a".* \
@@ -993,7 +1171,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT "b".*, "a1".*, "a2".* \
@@ -1051,7 +1229,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT "a".*, "c".* \
@@ -1103,7 +1281,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT "a".*, "c1".*, "c2".* \
@@ -1163,7 +1341,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT "d".*, "c".*, "a".* \
@@ -1201,7 +1379,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 XCTAssertEqual(selectQueries, [
                     """
                     SELECT "d".*, "a".* \
@@ -1239,7 +1417,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 // LEFT JOIN in the first query are useless but harmless.
                 // And SQLite may well optimize them out.
                 // So don't bother removing them.
@@ -1294,7 +1472,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 // LEFT JOIN in the first query are useless but harmless.
                 // And SQLite may well optimize them out.
                 // So don't bother removing them.
@@ -1355,7 +1533,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 // LEFT JOIN in the first query are useless but harmless.
                 // And SQLite may well optimize them out.
                 // So don't bother removing them.
@@ -1410,7 +1588,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 // LEFT JOIN in the first query are useless but harmless.
                 // And SQLite may well optimize them out.
                 // So don't bother removing them.
@@ -1473,7 +1651,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 // LEFT JOIN in the first query are useless but harmless.
                 // And SQLite may well optimize them out.
                 // So don't bother removing them.
@@ -1514,7 +1692,7 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                 sqlQueries.removeAll()
                 _ = try Row.fetchAll(db, request)
                 
-                let selectQueries = sqlQueries.filter { $0.contains("SELECT") && !$0.contains("sqlite_") }
+                let selectQueries = sqlQueries.filter(isSelectQuery)
                 // LEFT JOIN in the first query are useless but harmless.
                 // And SQLite may well optimize them out.
                 // So don't bother removing them.
@@ -1536,5 +1714,244 @@ class AssociationPrefetchingSQLTests: GRDBTestCase {
                     """])
             }
         }
+    }
+    
+    func testAssociationFilteredByOtherAssociation() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.write { db in
+            // Plain request
+            do {
+                let request = A
+                    .including(all: A
+                        .hasMany(
+                            D.self,
+                            through: A.hasMany(C.self)
+                                .joining(required: C.belongsTo(A.self).filter(sql: "1")),
+                            using: C.hasMany(D.self))
+                        .orderByPrimaryKey())
+                    .filter(sql: "1 + 1")
+                    .orderByPrimaryKey()
+                
+                sqlQueries.removeAll()
+                _ = try Row.fetchAll(db, request)
+                
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "a" WHERE 1 + 1 ORDER BY "cola1"
+                    """,
+                    """
+                    SELECT "d".*, "c"."colc2" AS "grdb_colc2" \
+                    FROM "d" \
+                    JOIN "c" ON ("c"."colc1" = "d"."cold2") AND ("c"."colc2" IN (1, 2, 3)) \
+                    JOIN "a" ON ("a"."cola1" = "c"."colc2") AND (1) \
+                    ORDER BY "d"."cold1"
+                    """])
+            }
+        }
+    }
+    
+    func testAggregate() throws {
+        struct Award: TableRecord { }
+        struct Player: TableRecord {
+            static let awards = hasMany(Award.self)
+        }
+        struct Team: TableRecord {
+            static let players = hasMany(Player.self)
+        }
+        
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.write { db in
+            try db.create(table: "team") { t in
+                t.autoIncrementedPrimaryKey("teamId")
+            }
+            try db.create(table: "player") { t in
+                t.autoIncrementedPrimaryKey("playerId")
+                t.column("parentId", .integer).references("team")
+                t.column("score")
+                t.column("category")
+            }
+            try db.create(table: "award") { t in
+                t.autoIncrementedPrimaryKey("awardId")
+                t.column("playerId", .integer).references("player")
+            }
+            try db.execute(sql: "INSERT INTO team DEFAULT VALUES")
+            
+            do {
+                // Group an association
+                sqlQueries.removeAll()
+                let association = Team.players.select(max(Column("score"))).group(Column("category"))
+                let request = Team.including(all: association)
+                _ = try Row.fetchAll(db, request)
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "team"
+                    """,
+                    """
+                    SELECT MAX("score"), "parentId" AS "grdb_parentId" \
+                    FROM "player" \
+                    WHERE "parentId" = 1 \
+                    GROUP BY "category"
+                    """])
+            }
+            
+            do {
+                // Filter an association with an association aggregate
+                sqlQueries.removeAll()
+                let association = Team.players.having(Player.awards.isEmpty)
+                let request = Team.including(all: association)
+                _ = try Row.fetchAll(db, request)
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "team"
+                    """,
+                    """
+                    SELECT "player".*, "player"."parentId" AS "grdb_parentId" \
+                    FROM "player" \
+                    LEFT JOIN "award" ON "award"."playerId" = "player"."playerId" \
+                    WHERE "player"."parentId" = 1 \
+                    GROUP BY "player"."playerId" \
+                    HAVING COUNT(DISTINCT "award"."awardId") = 0
+                    """])
+            }
+            
+            do {
+                // Annotate an association with an association aggregate
+                sqlQueries.removeAll()
+                let association = Team.players.annotated(with: Player.awards.count)
+                let request = Team.including(all: association)
+                _ = try Row.fetchAll(db, request)
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "team"
+                    """,
+                    """
+                    SELECT "player".*, COUNT(DISTINCT "award"."awardId") AS "awardCount", "player"."parentId" AS "grdb_parentId" \
+                    FROM "player" \
+                    LEFT JOIN "award" ON "award"."playerId" = "player"."playerId" \
+                    WHERE "player"."parentId" = 1 \
+                    GROUP BY "player"."playerId"
+                    """])
+            }
+        }
+    }
+    
+    func testDistinct() throws {
+        struct Player: TableRecord { }
+        struct Team: TableRecord {
+            static let players = hasMany(Player.self)
+        }
+        
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.write { db in
+            try db.create(table: "team") { t in
+                t.autoIncrementedPrimaryKey("teamId")
+            }
+            try db.create(table: "player") { t in
+                t.autoIncrementedPrimaryKey("playerId")
+                t.column("parentId", .integer).references("team")
+            }
+            try db.execute(sql: "INSERT INTO team DEFAULT VALUES")
+            
+            do {
+                sqlQueries.removeAll()
+                let association = Team.players.distinct()
+                let request = Team.including(all: association)
+                _ = try Row.fetchAll(db, request)
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "team"
+                    """,
+                    """
+                    SELECT DISTINCT *, "parentId" AS "grdb_parentId" \
+                    FROM "player" \
+                    WHERE "parentId" = 1
+                    """])
+            }
+        }
+    }
+    
+    func testLimit() throws {
+        struct Player: TableRecord { }
+        struct Team: TableRecord {
+            static let players = hasMany(Player.self)
+        }
+        
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.write { db in
+            try db.create(table: "team") { t in
+                t.autoIncrementedPrimaryKey("teamId")
+            }
+            try db.create(table: "player") { t in
+                t.autoIncrementedPrimaryKey("playerId")
+                t.column("parentId", .integer).references("team")
+            }
+            try db.execute(sql: "INSERT INTO team DEFAULT VALUES")
+            
+            do {
+                sqlQueries.removeAll()
+                let association = Team.players.limit(10, offset: 5)
+                let request = Team.including(all: association)
+                _ = try Row.fetchAll(db, request)
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "team"
+                    """,
+                    """
+                    SELECT *, "parentId" AS "grdb_parentId" \
+                    FROM "player" \
+                    WHERE "parentId" = 1 \
+                    LIMIT 10 OFFSET 5
+                    """])
+            }
+        }
+    }
+    
+    func testCTE() throws {
+        struct Player: TableRecord { }
+        struct Team: TableRecord {
+            static let players = hasMany(Player.self)
+        }
+        
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.write { db in
+            try db.create(table: "team") { t in
+                t.autoIncrementedPrimaryKey("teamId")
+            }
+            try db.create(table: "player") { t in
+                t.autoIncrementedPrimaryKey("playerId")
+                t.column("parentId", .integer).references("team")
+            }
+            try db.execute(sql: "INSERT INTO team DEFAULT VALUES")
+            
+            do {
+                sqlQueries.removeAll()
+                let cte = CommonTableExpression(named: "cte", sql: "SELECT 42")
+                let association = Team.players.with(cte).filter(Column("playerId") == cte.all())
+                let request = Team.including(all: association)
+                _ = try Row.fetchAll(db, request)
+                let selectQueries = sqlQueries.filter(isSelectQuery)
+                XCTAssertEqual(selectQueries, [
+                    """
+                    SELECT * FROM "team"
+                    """,
+                    """
+                    WITH "cte" AS (SELECT 42) \
+                    SELECT *, "parentId" AS "grdb_parentId" \
+                    FROM "player" \
+                    WHERE ("playerId" = (SELECT * FROM "cte")) AND ("parentId" = 1)
+                    """])
+            }
+        }
+    }
+
+    // Return SELECT queries, but omit schema queries.
+    private func isSelectQuery(_ query: String) -> Bool {
+        return query.contains("SELECT") && !query.contains("sqlite_") && !query.contains("pragma_table_xinfo")
     }
 }

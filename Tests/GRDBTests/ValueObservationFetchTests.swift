@@ -1,118 +1,211 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    #if SWIFT_PACKAGE
-        import CSQLite
-    #else
-        import SQLite3
-    #endif
-    import GRDB
-#endif
+import GRDB
 
 class ValueObservationFetchTests: GRDBTestCase {
-    func testRegionsAPI() {
-        // single region
-        _ = ValueObservation.tracking(DatabaseRegion(), fetch: { _ in })
-        // variadic
-        _ = ValueObservation.tracking(DatabaseRegion(), DatabaseRegion(), fetch: { _ in })
-        // array
-        _ = ValueObservation.tracking([DatabaseRegion()], fetch: { _ in })
-    }
-    
     func testFetch() throws {
-        func test(_ dbWriter: DatabaseWriter) throws {
-            try dbWriter.write { try $0.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)") }
-            
-            var counts: [Int] = []
-            let notificationExpectation = expectation(description: "notification")
-            notificationExpectation.assertForOverFulfill = true
-            notificationExpectation.expectedFulfillmentCount = 4
-            
-            let observation = ValueObservation.tracking(DatabaseRegion.fullDatabase, fetch: {
+        // Count
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
                 try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM t")!
-            })
-            let observer = try observation.start(in: dbWriter) { count in
-                counts.append(count)
-                notificationExpectation.fulfill()
-            }
-            try withExtendedLifetime(observer) {
-                try dbWriter.writeWithoutTransaction { db in
-                    try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
-                    try db.execute(sql: "UPDATE t SET id = id")
-                    try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
-                }
-                
-                waitForExpectations(timeout: 1, handler: nil)
-                XCTAssertEqual(counts, [0, 1, 1, 2])
-            }
-        }
+            },
+            records: [0, 1, 1, 2],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
         
-        try test(makeDatabaseQueue())
-        try test(makeDatabasePool())
+        // Select rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try Int.fetchAll($0, sql: "SELECT id FROM t ORDER BY id")
+            },
+            records: [[], [1], [1], [1, 2]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
+        
+        // Select non-rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try String.fetchAll($0, sql: "SELECT name FROM t ORDER BY name")
+            },
+            records: [[], ["Arthur"], ["Arthur", "Barbara"]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t (name) VALUES ('Arthur')")
+                try db.execute(sql: "UPDATE t SET id = id") // does not trigger the observation
+                try db.execute(sql: "INSERT INTO t (name) VALUES ('Barbara')")
+        })
     }
     
-    func testDistinctUntilChangedDeprecated() throws {
-        func test(_ dbWriter: DatabaseWriter) throws {
-            try dbWriter.write { try $0.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)") }
-            
-            var counts: [Int] = []
-            let notificationExpectation = expectation(description: "notification")
-            notificationExpectation.assertForOverFulfill = true
-            notificationExpectation.expectedFulfillmentCount = 3
-            
-            let observation = ValueObservation.tracking(DatabaseRegion.fullDatabase, fetch: {
+    // Regression test for https://github.com/groue/GRDB.swift/issues/954
+    func testCaseInsensitivityForTable() throws {
+        // Count
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
                 try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM t")!
-            }).distinctUntilChanged()
-            let observer = try observation.start(in: dbWriter) { count in
-                counts.append(count)
-                notificationExpectation.fulfill()
-            }
-            try withExtendedLifetime(observer) {
-                try dbWriter.writeWithoutTransaction { db in
-                    try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
-                    try db.execute(sql: "UPDATE t SET id = id")
-                    try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
-                }
-                
-                waitForExpectations(timeout: 1, handler: nil)
-                XCTAssertEqual(counts, [0, 1, 2])
-            }
-        }
+            },
+            records: [0, 1, 1, 2],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE T(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
         
-        try test(makeDatabaseQueue())
-        try test(makeDatabasePool())
+        // Select rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try Int.fetchAll($0, sql: "SELECT id FROM t ORDER BY id")
+            },
+            records: [[], [1], [1], [1, 2]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE T(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
+        
+        // Select non-rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try String.fetchAll($0, sql: "SELECT name FROM t ORDER BY name")
+            },
+            records: [[], ["Arthur"], ["Arthur", "Barbara"]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE T(id INTEGER PRIMARY KEY, name TEXT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t (name) VALUES ('Arthur')")
+                try db.execute(sql: "UPDATE t SET id = id") // does not trigger the observation
+                try db.execute(sql: "INSERT INTO t (name) VALUES ('Barbara')")
+        })
+    }
+    
+    // Regression test for https://github.com/groue/GRDB.swift/issues/954
+    func testCaseInsensitivityForFetch() throws {
+        // Count
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM T")!
+            },
+            records: [0, 1, 1, 2],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
+        
+        // Select rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try Int.fetchAll($0, sql: "SELECT ID FROM T ORDER BY ID")
+            },
+            records: [[], [1], [1], [1, 2]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
+        
+        // Select non-rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try String.fetchAll($0, sql: "SELECT NAME FROM T ORDER BY NAME")
+            },
+            records: [[], ["Arthur"], ["Arthur", "Barbara"]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t (name) VALUES ('Arthur')")
+                try db.execute(sql: "UPDATE t SET id = id") // does not trigger the observation
+                try db.execute(sql: "INSERT INTO t (name) VALUES ('Barbara')")
+        })
+    }
+    
+    // Regression test for https://github.com/groue/GRDB.swift/issues/954
+    func testCaseInsensitivityForUpdates() throws {
+        // Count
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM t")!
+            },
+            records: [0, 1, 1, 2],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO T DEFAULT VALUES")
+                try db.execute(sql: "UPDATE T SET ID = ID")
+                try db.execute(sql: "INSERT INTO T DEFAULT VALUES")
+        })
+        
+        // Select rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try Int.fetchAll($0, sql: "SELECT id FROM t ORDER BY id")
+            },
+            records: [[], [1], [1], [1, 2]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO T DEFAULT VALUES")
+                try db.execute(sql: "UPDATE T SET ID = ID")
+                try db.execute(sql: "INSERT INTO T DEFAULT VALUES")
+        })
+        
+        // Select non-rowid
+        try assertValueObservation(
+            ValueObservation.trackingConstantRegion {
+                try String.fetchAll($0, sql: "SELECT name FROM t ORDER BY name")
+            },
+            records: [[], ["Arthur"], ["Arthur", "Barbara"]],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO T (NAME) VALUES ('Arthur')")
+                try db.execute(sql: "UPDATE T SET ID = ID") // does not trigger the observation
+                try db.execute(sql: "INSERT INTO T (NAME) VALUES ('Barbara')")
+        })
     }
 
     func testRemoveDuplicated() throws {
-        func test(_ dbWriter: DatabaseWriter) throws {
-            try dbWriter.write { try $0.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)") }
-            
-            var counts: [Int] = []
-            let notificationExpectation = expectation(description: "notification")
-            notificationExpectation.assertForOverFulfill = true
-            notificationExpectation.expectedFulfillmentCount = 3
-            
-            let observation = ValueObservation.tracking(DatabaseRegion.fullDatabase, fetch: {
-                try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM t")!
-            }).removeDuplicates()
-            let observer = try observation.start(in: dbWriter) { count in
-                counts.append(count)
-                notificationExpectation.fulfill()
-            }
-            try withExtendedLifetime(observer) {
-                try dbWriter.writeWithoutTransaction { db in
-                    try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
-                    try db.execute(sql: "UPDATE t SET id = id")
-                    try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
-                }
-                
-                waitForExpectations(timeout: 1, handler: nil)
-                XCTAssertEqual(counts, [0, 1, 2])
-            }
-        }
-        
-        try test(makeDatabaseQueue())
-        try test(makeDatabasePool())
+        try assertValueObservation(
+            ValueObservation
+                .trackingConstantRegion { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM t")! }
+                .removeDuplicates(),
+            records: [0, 1, 2],
+            setup: { db in
+                try db.execute(sql: "CREATE TABLE t(id INTEGER PRIMARY KEY AUTOINCREMENT)")
+        },
+            recordedUpdates: { db in
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+                try db.execute(sql: "UPDATE t SET id = id")
+                try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
+        })
     }
 }

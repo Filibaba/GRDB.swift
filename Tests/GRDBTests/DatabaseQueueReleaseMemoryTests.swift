@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    @testable import GRDBCustomSQLite
-#else
-    @testable import GRDB
-#endif
+@testable import GRDB
 
 class DatabaseQueueReleaseMemoryTests: GRDBTestCase {
     
@@ -120,12 +116,12 @@ class DatabaseQueueReleaseMemoryTests: GRDBTestCase {
                 s2.signal()
             }
             let block2 = { [weak dbQueue] () in
-                var statement: UpdateStatement? = nil
+                var statement: Statement? = nil
                 do {
                     if let dbQueue = dbQueue {
                         do {
                             try dbQueue.write { db in
-                                statement = try db.makeUpdateStatement(sql: "CREATE TABLE items (id INTEGER PRIMARY KEY)")
+                                statement = try db.makeStatement(sql: "CREATE TABLE items (id INTEGER PRIMARY KEY)")
                                 s1.signal()
                             }
                         } catch {

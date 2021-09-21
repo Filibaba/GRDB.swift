@@ -1,6 +1,11 @@
 # The OS X Build Environment
 # https://docs.travis-ci.com/user/reference/osx/#xcode-version
 
+branches:
+  only:
+  - master
+  - development
+
 language: objective-c
 xcode_project: GRDB.xcodeproj
 
@@ -21,330 +26,136 @@ git:
 
 jobs:
   include:
-
+    
     ###########################################
-    ## Test GRDB Xcode 10.2
+    ## Test GRDB Xcode 11.4
     
-    - stage: Test GRDB Xcode 10.2
+    - name: "Test GRDB Xcode 11.4 - GRDBiOS iOS maxTarget"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBOSX (Swift 5, macOS)
-      script: make test_framework_GRDBOSX_maxSwift
-    
-    - stage: Test GRDB Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBOSX (Swift 4.2, macOS)
-      script: make test_framework_GRDBOSX_minSwift
-    
-    - stage: Test GRDB Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBWatchOS (watchOS)
-      script: make test_framework_GRDBWatchOS
-    
-    - stage: Test GRDB Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBiOS (Swift 5, iOS <MAX>)
+      osx_image: xcode11.4
       script: make test_framework_GRDBiOS_maxTarget_maxSwift
     
-    - stage: Test GRDB Xcode 10.2
+    - name: "Test GRDB Xcode 11.4 - GRDBiOS iOS minTarget"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBiOS (Swift 4.2, iOS <MAX>)
-      script: make test_framework_GRDBiOS_maxTarget_minSwift
+      osx_image: xcode11.4
+      script: make test_framework_GRDBiOS_minTarget
+
+    ###########################################
+    ## Test GRDB Xcode 12.5
     
-    - stage: Test GRDB Xcode 10.2
+    - name: "Test GRDB Xcode 12.5 - GRDBOSX - Swift 5.3"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBiOS (Swift 5, iOS <MIN>)
+      osx_image: xcode12.5
+      script: make test_framework_GRDBOSX_maxSwift
+    
+    - name: "Test GRDB Xcode 12.5 - GRDBOSX - Swift 5.2"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_framework_GRDBOSX_minSwift
+    
+    - name: "Test GRDB Xcode 12.5 - GRDBWatchOS"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_framework_GRDBWatchOS
+    
+    - name: "Test GRDB Xcode 12.5 - GRDBiOS iOS maxTarget"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_framework_GRDBiOS_maxTarget_maxSwift
+    
+    - name: "Test GRDB Xcode 12.5 - GRDBiOS iOS minTarget"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
       script: make test_framework_GRDBiOS_minTarget
     
-    - stage: Test GRDB Xcode 10.2
+    - name: "Test GRDB Xcode 12.5 - GRDBtvOS maxTarget"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDB [SPM] (macOS)
+      osx_image: xcode12.5
+      script: make test_framework_GRDBtvOS_maxTarget_maxSwift
+    
+    - name: "Test GRDB Xcode 12.5 - GRDBtvOS minTarget"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_framework_GRDBtvOS_minTarget
+    
+    - name: "Test GRDB Xcode 12.5 - SPM"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
       script: make test_SPM
     
     ###########################################
-    ## Test GRDBCustom Xcode 10.2
+    ## Test GRDBCustom Xcode 12.5
     
-    - stage: Test GRDBCustom Xcode 10.2
+    - name: "Test GRDBCustom Xcode 12.5 - GRDBOSX"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBOSX (Swift 5, macOS)
+      osx_image: xcode12.5
       script: make test_framework_GRDBCustomSQLiteOSX
     
-    - stage: Test GRDBCustom Xcode 10.2
+    - name: "Test GRDBCustom Xcode 12.5 - GRDBiOS maxTarget"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBiOS (Swift 5, iOS <MAX>)
+      osx_image: xcode12.5
       script: make test_framework_GRDBCustomSQLiteiOS_maxTarget_maxSwift
     
-    - stage: Test GRDBCustom Xcode 10.2
+    - name: "Test GRDBCustom Xcode 12.5 - GRDBiOS minTarget"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBiOS (Swift 4.2, iOS <MAX>)
-      script: make test_framework_GRDBCustomSQLiteiOS_maxTarget_minSwift
-    
-    - stage: Test GRDBCustom Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=GRDBiOS (Swift 5, iOS <MIN>)
+      osx_image: xcode12.5
       script: make test_framework_GRDBCustomSQLiteiOS_minTarget
     
     ###########################################
-    ## Test SQLCipher Xcode 10.2
+    ## Test SQLCipher Xcode 12.5
     
-    - stage: Test SQLCipher Xcode 10.2
+    - name: "Test SQLCipher Xcode 12.5 - SQLCipher 3"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=SQLCipher 3
+      osx_image: xcode12.5
       script: make test_framework_SQLCipher3
     
-    - stage: Test SQLCipher Xcode 10.2
+    - name: "Test SQLCipher Xcode 12.5 - SQLCipher 4"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=SQLCipher 4
+      osx_image: xcode12.5
       script: make test_framework_SQLCipher4
     
     ###########################################
-    ## Test Installation Xcode 10.2
+    ## Test Installation Xcode 12.5
     
     # Manual Install
-    - stage: Test Installation Xcode 10.2
+    - name: "Test Installation Xcode 12.5 - Manual Install"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=Manual Install
+      osx_image: xcode12.5
       script: make test_install_manual
     
-    # CocoaPods Lint
-    - stage: Test Installation Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=CocoaPods Lint
-      script: make test_CocoaPodsLint_GRDB
-    
-    # CocoaPods Install GRDB
-    - stage: Test Installation Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=CocoaPods GRDB (framework)
-      script: make test_install_GRDB_CocoaPods_framework
-    
-    # CocoaPods Install GRDB
-    - stage: Test Installation Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=CocoaPods GRDB (static)
-      script: make test_install_GRDB_CocoaPods_static
-    
-    # SPM Install
-    - stage: Test Installation Xcode 10.2
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.2
-      env:
-        - TID=SPM
-      script: make test_install_SPM
-    
-    ###########################################
-    ## Test GRDB Xcode 10.1
-    
-    - stage: Test GRDB Xcode 10.1
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.1
-      env:
-        - TID=GRDBOSX (Swift 4.2, macOS)
-      script: make test_framework_GRDBOSX_maxSwift
-    
-    - stage: Test GRDB Xcode 10.1
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.1
-      env:
-        - TID=GRDBWatchOS (watchOS)
-      script: make test_framework_GRDBWatchOS
-    
-    - stage: Test GRDB Xcode 10.1
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.1
-      env:
-        - TID=GRDBiOS (Swift 4.2, iOS <MAX>)
-      script: make test_framework_GRDBiOS_maxTarget_maxSwift
-    
-    - stage: Test GRDB Xcode 10.1
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.1
-      env:
-        - TID=GRDBiOS (Swift 4.2, iOS <MIN>)
-      script: make test_framework_GRDBiOS_minTarget
-    
-    - stage: Test GRDB Xcode 10.1
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10.1
-      env:
-        - TID=GRDB [SPM] (macOS)
-      script: make test_SPM
-    
-    # ###########################################
-    # ## Test GRDBCustom Xcode 10.1
-    # 
-    # - stage: Test GRDBCustom Xcode 10.1
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10.1
-    #   env:
-    #     - TID=GRDBOSX (Swift 4.2, macOS)
-    #   script: make test_framework_GRDBCustomSQLiteOSX
-    # 
-    # - stage: Test GRDBCustom Xcode 10.1
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10.1
-    #   env:
-    #     - TID=GRDBiOS (Swift 4.2, iOS <MAX>)
-    #   script: make test_framework_GRDBCustomSQLiteiOS_maxTarget_maxSwift
-    # 
-    # - stage: Test GRDBCustom Xcode 10.1
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10.1
-    #   env:
-    #     - TID=GRDBiOS (Swift 4.2, iOS <MIN>)
-    #   script: make test_framework_GRDBCustomSQLiteiOS_minTarget
-    
-    ###########################################
-    ## Test GRDB Xcode 10
-    
-    - stage: Test GRDB Xcode 10
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=GRDBOSX (Swift 4.2, macOS)
-      script: make test_framework_GRDBOSX_maxSwift
-    
-    - stage: Test GRDB Xcode 10
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=GRDBWatchOS (watchOS)
-      script: make test_framework_GRDBWatchOS
-    
-    - stage: Test GRDB Xcode 10
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=GRDBiOS (Swift 4.2, iOS <MAX>)
-      script: make test_framework_GRDBiOS_maxTarget_maxSwift
-    
-    - stage: Test GRDB Xcode 10
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=GRDBiOS (Swift 4.2, iOS <MIN>)
-      script: make test_framework_GRDBiOS_minTarget
-    
-    - stage: Test GRDB Xcode 10
-      gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=GRDB [SPM] (macOS)
-      script: make test_SPM
-    
-    # ###########################################
-    # ## Test GRDBCustom Xcode 10
-    # 
-    # - stage: Test GRDBCustom Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=GRDBOSX (Swift 4.2, macOS)
-    #   script: make test_framework_GRDBCustomSQLiteOSX
-    # 
-    # - stage: Test GRDBCustom Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=GRDBiOS (Swift 4.2, iOS <MAX>)
-    #   script: make test_framework_GRDBCustomSQLiteiOS_maxTarget_maxSwift
-    # 
-    # - stage: Test GRDBCustom Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=GRDBiOS (Swift 4.2, iOS <MIN>)
-    #   script: make test_framework_GRDBCustomSQLiteiOS_minTarget
-    # 
-    # ###########################################
-    # ## Test SQLCipher Xcode 10
-    # 
-    # - stage: Test SQLCipher Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=SQLCipher 3
-    #   script: make test_framework_SQLCipher3
-    # 
-    # - stage: Test SQLCipher Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=SQLCipher 4
-    #   script: make test_framework_SQLCipher4
-    
-    ###########################################
-    ## Test Installation Xcode 10
-    
-    # # Manual Install
-    # - stage: Test Installation Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=Manual Install
-    #   script: make test_install_manual
-    # 
+    # Travis is much too slow, and always fail this job
     # # CocoaPods Lint
-    # - stage: Test Installation Xcode 10
+    # - name: "Test Installation Xcode 12.5 - CocoaPods Lint"
     #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=CocoaPods Lint
+    #   osx_image: xcode12.5
     #   script: make test_CocoaPodsLint_GRDB
     
     # CocoaPods Install GRDB
-    - stage: Test Installation Xcode 10
+    - name: "Test Installation Xcode 12.5 - CocoaPods Framework"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=CocoaPods GRDB (framework)
+      osx_image: xcode12.5
       script: make test_install_GRDB_CocoaPods_framework
     
     # CocoaPods Install GRDB
-    - stage: Test Installation Xcode 10
+    - name: "Test Installation Xcode 12.5 - CocoaPods Static"
       gemfile: .ci/gemfiles/Gemfile.travis
-      osx_image: xcode10
-      env:
-        - TID=CocoaPods GRDB (static)
+      osx_image: xcode12.5
       script: make test_install_GRDB_CocoaPods_static
     
-    # # SPM Install
-    # - stage: Test Installation Xcode 10
-    #   gemfile: .ci/gemfiles/Gemfile.travis
-    #   osx_image: xcode10
-    #   env:
-    #     - TID=SPM
-    #   script: make test_install_SPM
+    # SPM Install
+    - name: "Test Installation Xcode 12.5 - SPM Package"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_install_SPM_Package
+    
+    # SPM Install
+    - name: "Test Installation Xcode 12.5 - SPM Package in Xcode Project"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_install_SPM_Project
+    
+    # Custom SQLite Install
+    - name: "Test Installation Xcode 12.5 - Custom SQLite"
+      gemfile: .ci/gemfiles/Gemfile.travis
+      osx_image: xcode12.5
+      script: make test_install_customSQLite

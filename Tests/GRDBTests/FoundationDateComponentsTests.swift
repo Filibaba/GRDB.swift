@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 class FoundationDateComponentsTests : GRDBTestCase {
     
@@ -353,22 +349,39 @@ class FoundationDateComponentsTests : GRDBTestCase {
     }
 
     func testDatabaseDateComponentsParsing() {
-        func assertParse(_ string: String, _ dateComponent: DatabaseDateComponents, file: StaticString = #file, line: UInt = #line) {
+        func _assertParse(_ string: String, _ dateComponent: DatabaseDateComponents, file: StaticString, line: UInt) {
             do {
                 // Test DatabaseValueConvertible adoption
-                let parsed = DatabaseDateComponents.fromDatabaseValue(string.databaseValue)!
+                guard let parsed = DatabaseDateComponents.fromDatabaseValue(string.databaseValue) else {
+                    XCTFail("Could not parse \(String(reflecting: string))", file: file, line: line)
+                    return
+                }
                 XCTAssertEqual(parsed.format, dateComponent.format, file: file, line: line)
                 XCTAssertEqual(parsed.dateComponents, dateComponent.dateComponents, file: file, line: line)
             }
             do {
                 // Test StatementColumnConvertible adoption
-                let parsed = DatabaseQueue().inDatabase {
-                    try! DatabaseDateComponents.fetchOne($0, sql: "SELECT ?", arguments: [string])!
+                guard let parsed = try? DatabaseQueue().inDatabase({
+                    try DatabaseDateComponents.fetchOne($0, sql: "SELECT ?", arguments: [string])
+                }) else {
+                    XCTFail("Could not parse \(String(reflecting: string))", file: file, line: line)
+                    return
                 }
                 XCTAssertEqual(parsed.format, dateComponent.format, file: file, line: line)
                 XCTAssertEqual(parsed.dateComponents, dateComponent.dateComponents, file: file, line: line)
             }
         }
+        
+        // #file vs. #filePath dance
+        #if compiler(>=5.3)
+        func assertParse(_ string: String, _ dateComponent: DatabaseDateComponents, file: StaticString = #filePath, line: UInt = #line) {
+            _assertParse(string, dateComponent, file: file, line: line)
+        }
+        #else
+        func assertParse(_ string: String, _ dateComponent: DatabaseDateComponents, file: StaticString = #file, line: UInt = #line) {
+            _assertParse(string, dateComponent, file: file, line: line)
+        }
+        #endif
         
         assertParse(
             "0000-01-01",
@@ -384,6 +397,41 @@ class FoundationDateComponentsTests : GRDBTestCase {
             "2018-04-21 00:00",
             DatabaseDateComponents(
                 DateComponents(year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: nil, nanosecond: nil),
+                format: .YMD_HM))
+        assertParse(
+            "2018-04-21 00:00Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: nil, nanosecond: nil),
+                format: .YMD_HM))
+        assertParse(
+            "2018-04-21 00:00+00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: nil, nanosecond: nil),
+                format: .YMD_HM))
+        assertParse(
+            "2018-04-21 00:00-00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: nil, nanosecond: nil),
+                format: .YMD_HM))
+        assertParse(
+            "2018-04-21 00:00+01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 4500),
+                    year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: nil, nanosecond: nil),
+                format: .YMD_HM))
+        assertParse(
+            "2018-04-21 00:00-01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: -4500),
+                    year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: nil, nanosecond: nil),
                 format: .YMD_HM))
         assertParse(
             "2018-04-21T23:59",
@@ -411,6 +459,13 @@ class FoundationDateComponentsTests : GRDBTestCase {
                 DateComponents(year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 900_000_000),
                 format: .YMD_HMSS))
         assertParse(
+            "2018-04-21T23:59:59.9Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 900_000_000),
+                format: .YMD_HMSS))
+        assertParse(
             "2018-04-21 00:00:00.00",
             DatabaseDateComponents(
                 DateComponents(year: 2018, month: 04, day: 21, hour: 0, minute: 0, second: 0, nanosecond: 0),
@@ -424,6 +479,13 @@ class FoundationDateComponentsTests : GRDBTestCase {
             "2018-04-21T23:59:59.99",
             DatabaseDateComponents(
                 DateComponents(year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 990_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.99Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 990_000_000),
                 format: .YMD_HMSS))
         assertParse(
             "2018-04-21 00:00:00.000",
@@ -441,6 +503,53 @@ class FoundationDateComponentsTests : GRDBTestCase {
                 DateComponents(year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
                 format: .YMD_HMSS))
         assertParse(
+            "2018-04-21T23:59:59.999Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.999+00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.999-00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.999+01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 4500),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.999-01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: -4500),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.999123",
+            DatabaseDateComponents(
+                DateComponents(year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
+            "2018-04-21T23:59:59.999123Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: 2018, month: 04, day: 21, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .YMD_HMSS))
+        assertParse(
             "00:00",
             DatabaseDateComponents(
                 DateComponents(year: nil, month: nil, day: nil, hour: 0, minute: 0, second: nil, nanosecond: nil),
@@ -449,6 +558,41 @@ class FoundationDateComponentsTests : GRDBTestCase {
             "23:59",
             DatabaseDateComponents(
                 DateComponents(year: nil, month: nil, day: nil, hour: 23, minute: 59, second: nil, nanosecond: nil),
+                format: .HM))
+        assertParse(
+            "23:59Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: nil, nanosecond: nil),
+                format: .HM))
+        assertParse(
+            "23:59+00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: nil, nanosecond: nil),
+                format: .HM))
+        assertParse(
+            "23:59-00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: nil, nanosecond: nil),
+                format: .HM))
+        assertParse(
+            "23:59+01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 4500),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: nil, nanosecond: nil),
+                format: .HM))
+        assertParse(
+            "23:59-01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: -4500),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: nil, nanosecond: nil),
                 format: .HM))
         assertParse(
             "00:00:00",
@@ -471,6 +615,13 @@ class FoundationDateComponentsTests : GRDBTestCase {
                 DateComponents(year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 900_000_000),
                 format: .HMSS))
         assertParse(
+            "23:59:59.9Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 900_000_000),
+                format: .HMSS))
+        assertParse(
             "00:00:00.00",
             DatabaseDateComponents(
                 DateComponents(year: nil, month: nil, day: nil, hour: 0, minute: 0, second: 0, nanosecond: 0),
@@ -484,6 +635,13 @@ class FoundationDateComponentsTests : GRDBTestCase {
             "23:59:59.99",
             DatabaseDateComponents(
                 DateComponents(year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 990_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.99Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 990_000_000),
                 format: .HMSS))
         assertParse(
             "00:00:00.000",
@@ -500,10 +658,83 @@ class FoundationDateComponentsTests : GRDBTestCase {
             DatabaseDateComponents(
                 DateComponents(year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
                 format: .HMSS))
+        assertParse(
+            "23:59:59.999Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.999+00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.999-00:00",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.999+01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 4500),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.999-01:15",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: -4500),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.999123",
+            DatabaseDateComponents(
+                DateComponents(year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
+        assertParse(
+            "23:59:59.999123Z",
+            DatabaseDateComponents(
+                DateComponents(
+                    timeZone: TimeZone(secondsFromGMT: 0),
+                    year: nil, month: nil, day: nil, hour: 23, minute: 59, second: 59, nanosecond: 999_000_000),
+                format: .HMSS))
     }
     
     func testDatabaseDateComponentsFromUnparsableString() {
         let databaseDateComponents = DatabaseDateComponents.fromDatabaseValue("foo".databaseValue)
         XCTAssertTrue(databaseDateComponents == nil)
+    }
+
+    func testJSONEncodingOfDatabaseDateComponents() throws {
+        // Encoding root string is not suppported by all system version: use an object
+        struct Record: Encodable {
+            var date: DatabaseDateComponents
+        }
+        let record = Record(date: DatabaseDateComponents(DateComponents(year: 2018, month: 12, day: 31), format: .YMD))
+        let jsonData = try JSONEncoder().encode(record)
+        let json = String(data: jsonData, encoding: .utf8)!
+        XCTAssertEqual(json, """
+            {"date":"2018-12-31"}
+            """)
+    }
+
+    func testJSONDecodingOfDatabaseDateComponents() throws {
+        // Decoding root string is not suppported by all system version: use an object
+        struct Record: Decodable {
+            var date: DatabaseDateComponents
+        }
+        let json = """
+            {"date":"2018-12-31"}
+            """
+        let record = try JSONDecoder().decode(Record.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(record.date.format, .YMD)
+        XCTAssertEqual(record.date.dateComponents, DateComponents(year: 2018, month: 12, day: 31))
     }
 }

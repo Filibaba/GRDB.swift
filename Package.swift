@@ -1,28 +1,40 @@
-// swift-tools-version:4.2
+// swift-tools-version:5.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "GRDB",
+    platforms: [
+        .iOS("10.0"),
+        .macOS("10.10"),
+        .tvOS("9.0"),
+        .watchOS("2.0"),
+    ],
     products: [
         .library(name: "GRDB", type: .dynamic, targets: ["GRDB"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/groue/CSQLite.git", from: "0.2.0"),
     ],
     targets: [
-        .target(name: "GRDB", path: "GRDB"),
+        .systemLibrary(
+            name: "CSQLite",
+            providers: [.apt(["libsqlite3-dev"])]),
+        .target(
+            name: "GRDB",
+            dependencies: ["CSQLite"],
+            path: "GRDB"),
         .testTarget(
             name: "GRDBTests",
             dependencies: ["GRDB"],
             path: "Tests",
             exclude: [
                 "CocoaPods",
+                "CustomSQLite",
                 "Crash",
                 "Performance",
-                "SPM"
+                "SPM",
             ])
     ],
-    swiftLanguageVersions: [.v4_2, .version("5")]
+    swiftLanguageVersions: [.v5]
 )

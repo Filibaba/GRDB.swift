@@ -1,14 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    @testable import GRDBCustomSQLite
-#else
-    #if SWIFT_PACKAGE
-        import CSQLite
-    #else
-        import SQLite3
-    #endif
-    @testable import GRDB
-#endif
+@testable import GRDB
 
 class DatabaseTests : GRDBTestCase {
     
@@ -60,7 +51,7 @@ class DatabaseTests : GRDBTestCase {
             try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
             
             // The tested function:
-            let statement = try db.makeUpdateStatement(sql: "INSERT INTO persons (name, age) VALUES ('Arthur', 41)")
+            let statement = try db.makeStatement(sql: "INSERT INTO persons (name, age) VALUES ('Arthur', 41)")
             try statement.execute()
             
             let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
@@ -74,7 +65,7 @@ class DatabaseTests : GRDBTestCase {
         try dbQueue.inDatabase { db in
             try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
             
-            let statement = try db.makeUpdateStatement(sql: "INSERT INTO persons (name, age) VALUES (?, ?)")
+            let statement = try db.makeStatement(sql: "INSERT INTO persons (name, age) VALUES (?, ?)")
             try statement.execute(arguments: ["Arthur", 41])
             
             let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
@@ -88,7 +79,7 @@ class DatabaseTests : GRDBTestCase {
         try dbQueue.inDatabase { db in
             try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
             
-            let statement = try db.makeUpdateStatement(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)")
+            let statement = try db.makeStatement(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)")
             try statement.execute(arguments: ["name": "Arthur", "age": 41])
             
             let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
@@ -97,6 +88,122 @@ class DatabaseTests : GRDBTestCase {
         }
     }
 
+    func testUpdateStatementLiteral() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            // The tested function:
+            let statement = try db.makeStatement(literal: "INSERT INTO persons (name, age) VALUES ('Arthur', 41)")
+            try statement.execute()
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testUpdateStatementLiteralWithArguments() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            // The tested function:
+            let statement = try db.makeStatement(literal: "INSERT INTO persons (name, age) VALUES (\("Arthur"), \(41))")
+            try statement.execute()
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testUpdateStatementLiteralWithArrayBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            let statement = try db.makeStatement(literal: "INSERT INTO persons (name, age) VALUES (?, ?)")
+            try statement.execute(arguments: ["Arthur", 41])
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testUpdateStatementLiteralWithDictionaryBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            let statement = try db.makeStatement(literal: "INSERT INTO persons (name, age) VALUES (:name, :age)")
+            try statement.execute(arguments: ["name": "Arthur", "age": 41])
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testCachedUpdateStatementLiteral() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            // The tested function:
+            let statement = try db.cachedStatement(literal: "INSERT INTO persons (name, age) VALUES ('Arthur', 41)")
+            try statement.execute()
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testCachedUpdateStatementLiteralWithArguments() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            // The tested function:
+            let statement = try db.cachedStatement(literal: "INSERT INTO persons (name, age) VALUES (\("Arthur"), \(41))")
+            try statement.execute()
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testCachedUpdateStatementLiteralWithArrayBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            let statement = try db.cachedStatement(literal: "INSERT INTO persons (name, age) VALUES (?, ?)")
+            try statement.execute(arguments: ["Arthur", 41])
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+
+    func testCachedUpdateStatementLiteralWithDictionaryBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            
+            let statement = try db.cachedStatement(literal: "INSERT INTO persons (name, age) VALUES (:name, :age)")
+            try statement.execute(arguments: ["name": "Arthur", "age": 41])
+            
+            let row = try Row.fetchOne(db, sql: "SELECT * FROM persons")!
+            XCTAssertEqual(row[0] as String, "Arthur")
+            XCTAssertEqual(row[1] as Int, 41)
+        }
+    }
+    
     func testDatabaseExecute() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
@@ -172,7 +279,7 @@ class DatabaseTests : GRDBTestCase {
             try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
             try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
             
-            let statement = try db.makeSelectStatement(sql: "SELECT * FROM persons")
+            let statement = try db.makeStatement(sql: "SELECT * FROM persons")
             let rows = try Row.fetchAll(statement)
             XCTAssertEqual(rows.count, 2)
         }
@@ -185,7 +292,7 @@ class DatabaseTests : GRDBTestCase {
             try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
             try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
             
-            let statement = try db.makeSelectStatement(sql: "SELECT * FROM persons WHERE name = ?")
+            let statement = try db.makeStatement(sql: "SELECT * FROM persons WHERE name = ?")
             let rows = try Row.fetchAll(statement, arguments: ["Arthur"])
             XCTAssertEqual(rows.count, 1)
         }
@@ -198,12 +305,116 @@ class DatabaseTests : GRDBTestCase {
             try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
             try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
             
-            let statement = try db.makeSelectStatement(sql: "SELECT * FROM persons WHERE name = :name")
+            let statement = try db.makeStatement(sql: "SELECT * FROM persons WHERE name = :name")
             let rows = try Row.fetchAll(statement, arguments: ["name": "Arthur"])
             XCTAssertEqual(rows.count, 1)
         }
     }
 
+    func testSelectStatementLiteral() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.makeStatement(literal: "SELECT * FROM persons")
+            let rows = try Row.fetchAll(statement)
+            XCTAssertEqual(rows.count, 2)
+        }
+    }
+
+    func testSelectStatementLiteralWithArguments() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.makeStatement(literal: "SELECT * FROM persons WHERE name = \("Arthur")")
+            let rows = try Row.fetchAll(statement)
+            XCTAssertEqual(rows.count, 1)
+        }
+    }
+    
+    func testSelectStatementLiteralWithArrayBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.makeStatement(literal: "SELECT * FROM persons WHERE name = ?")
+            let rows = try Row.fetchAll(statement, arguments: ["Arthur"])
+            XCTAssertEqual(rows.count, 1)
+        }
+    }
+
+    func testSelectStatementLiteralWithDictionaryBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.makeStatement(literal: "SELECT * FROM persons WHERE name = :name")
+            let rows = try Row.fetchAll(statement, arguments: ["name": "Arthur"])
+            XCTAssertEqual(rows.count, 1)
+        }
+    }
+
+    func testCachedSelectStatementLiteral() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.cachedStatement(literal: "SELECT * FROM persons")
+            let rows = try Row.fetchAll(statement)
+            XCTAssertEqual(rows.count, 2)
+        }
+    }
+
+    func testCachedSelectStatementLiteralWithArguments() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.cachedStatement(literal: "SELECT * FROM persons WHERE name = \("Arthur")")
+            let rows = try Row.fetchAll(statement)
+            XCTAssertEqual(rows.count, 1)
+        }
+    }
+    
+    func testCachedSelectStatementLiteralWithArrayBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.cachedStatement(literal: "SELECT * FROM persons WHERE name = ?")
+            let rows = try Row.fetchAll(statement, arguments: ["Arthur"])
+            XCTAssertEqual(rows.count, 1)
+        }
+    }
+
+    func testCachedSelectStatementLiteralWithDictionaryBinding() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.inDatabase { db in
+            try db.execute(sql: "CREATE TABLE persons (name TEXT, age INT)")
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Arthur", "age": 41])
+            try db.execute(sql: "INSERT INTO persons (name, age) VALUES (:name, :age)", arguments: ["name": "Barbara", "age": nil])
+            
+            let statement = try db.cachedStatement(literal: "SELECT * FROM persons WHERE name = :name")
+            let rows = try Row.fetchAll(statement, arguments: ["name": "Arthur"])
+            XCTAssertEqual(rows.count, 1)
+        }
+    }
+    
     func testRowValueAtIndex() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
@@ -266,14 +477,6 @@ class DatabaseTests : GRDBTestCase {
     }
 
     func testFailedCommitIsRollbacked() throws {
-        // PRAGMA defer_foreign_keys = ON was introduced in SQLite 3.12.0 http://www.sqlite.org/changes.html#version_3_8_0
-        // It is available from iOS 8.2 and OS X 10.10 https://github.com/yapstudios/YapDatabase/wiki/SQLite-version-(bundled-with-OS)
-        #if !GRDBCUSTOMSQLITE && !GRDBCIPHER
-            guard #available(iOS 8.2, OSX 10.10, *) else {
-                return
-            }
-        #endif
-        
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             try db.execute(sql: "CREATE TABLE parent (id INTEGER PRIMARY KEY)")
@@ -295,7 +498,7 @@ class DatabaseTests : GRDBTestCase {
             XCTAssertEqual(error.resultCode, .SQLITE_CONSTRAINT)
             XCTAssertEqual(error.message!, "FOREIGN KEY constraint failed")
             XCTAssertEqual(error.sql!, "COMMIT TRANSACTION")
-            XCTAssertEqual(error.description, "SQLite error 19 with statement `COMMIT TRANSACTION`: FOREIGN KEY constraint failed")
+            XCTAssertEqual(error.description, "SQLite error 19: FOREIGN KEY constraint failed - while executing `COMMIT TRANSACTION`")
         }
         
         // Make sure we can open another transaction
@@ -361,5 +564,42 @@ class DatabaseTests : GRDBTestCase {
             // Write access OK
             try db.execute(sql: "INSERT INTO t DEFAULT VALUES")
         }
+    }
+    
+    func testCheckpoint() throws {
+        do {
+            // Not a WAL database
+            let dbQueue = try makeDatabaseQueue()
+            let result = try dbQueue.inDatabase {
+                try $0.checkpoint()
+            }
+            XCTAssertEqual(result.walFrameCount, -1)
+            XCTAssertEqual(result.checkpointedFrameCount, -1)
+        }
+        do {
+            // WAL database
+            let dbPool = try makeDatabasePool()
+            let result = try dbPool.writeWithoutTransaction {
+                try $0.checkpoint()
+            }
+            XCTAssertGreaterThanOrEqual(result.walFrameCount, 0)
+            XCTAssertGreaterThanOrEqual(result.checkpointedFrameCount, 0)
+        }
+        do {
+            // WAL database + TRUNCATE
+            let dbPool = try makeDatabasePool()
+            let result = try dbPool.writeWithoutTransaction {
+                try $0.checkpoint(.truncate)
+            }
+            XCTAssertEqual(result.walFrameCount, 0)
+            XCTAssertEqual(result.checkpointedFrameCount, 0)
+        }
+    }
+    
+    func testMaximumStatementArgumentCount() throws {
+        let dbQueue = try makeDatabaseQueue()
+        let count = try dbQueue.read { $0.maximumStatementArgumentCount }
+        // 999 should be safe: https://www.sqlite.org/limits.html
+        XCTAssertGreaterThanOrEqual(count, 999)
     }
 }

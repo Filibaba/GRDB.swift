@@ -1,10 +1,6 @@
 #if SQLITE_ENABLE_FTS5
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 private struct Book {
     var id: Int64?
@@ -15,7 +11,11 @@ private struct Book {
 
 extension Book : FetchableRecord {
     init(row: Row) {
+        #if compiler(>=5.5)
+        id = row[.rowID]
+        #else
         id = row[Column.rowID]
+        #endif
         title = row["title"]
         author = row["author"]
         body = row["body"]
@@ -25,9 +25,13 @@ extension Book : FetchableRecord {
 extension Book : MutablePersistableRecord {
     static let databaseTableName = "books"
     static let databaseSelection: [SQLSelectable] = [AllColumns(), Column.rowID]
-
+    
     func encode(to container: inout PersistenceContainer) {
+        #if compiler(>=5.5)
+        container[.rowID] = id
+        #else
         container[Column.rowID] = id
+        #endif
         container["title"] = title
         container["author"] = author
         container["body"] = body
@@ -39,18 +43,6 @@ extension Book : MutablePersistableRecord {
 }
 
 class FTS5RecordTests: GRDBTestCase {
-    
-    override func setUp() {
-        super.setUp()
-        
-        dbConfiguration.trace = { [unowned self] sql in
-            // Ignore virtual table logs
-            if !sql.hasPrefix("--") {
-                self.sqlQueries.append(sql)
-            }
-        }
-    }
-    
     override func setup(_ dbWriter: DatabaseWriter) throws {
         try dbWriter.write { db in
             try db.create(virtualTable: "books", using: FTS5()) { t in
@@ -88,6 +80,9 @@ class FTS5RecordTests: GRDBTestCase {
             
             let pattern = FTS5Pattern(matchingAllTokensIn: "Herman Melville")!
             XCTAssertEqual(try Book.matching(pattern).fetchCount(db), 1)
+            XCTAssertEqual(try Book.filter(Column("books").match(pattern)).fetchCount(db), 1)
+            XCTAssertEqual(try Book.filter(Column("author").match(pattern)).fetchCount(db), 1)
+            XCTAssertEqual(try Book.filter(Column("title").match(pattern)).fetchCount(db), 0)
         }
     }
 
@@ -113,12 +108,18 @@ class FTS5RecordTests: GRDBTestCase {
                 try book.insert(db)
             }
             
-            let pattern = FTS5Pattern(matchingAllTokensIn: "Herman Melville")!
-            XCTAssertEqual(try Book.matching(pattern).fetchCount(db), 1)
-            XCTAssertEqual(lastSQLQuery, "SELECT COUNT(*) FROM \"books\" WHERE \"books\" MATCH 'herman melville'")
+            do {
+                sqlQueries = []
+                let pattern = FTS5Pattern(matchingAllTokensIn: "Herman Melville")!
+                XCTAssertEqual(try Book.matching(pattern).fetchCount(db), 1)
+                XCTAssertTrue(sqlQueries.contains("SELECT COUNT(*) FROM \"books\" WHERE \"books\" MATCH 'herman melville'"))
+            }
             
-            XCTAssertEqual(try Book.fetchCount(db), 1)
-            XCTAssertEqual(lastSQLQuery, "SELECT COUNT(*) FROM \"books\"")
+            do {
+                sqlQueries = []
+                XCTAssertEqual(try Book.fetchCount(db), 1)
+                XCTAssertTrue(sqlQueries.contains("SELECT COUNT(*) FROM \"books\""))
+            }
         }
     }
 }

@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 // A type that adopts DatabaseValueConvertible but does not adopt StatementColumnConvertible
 private struct IntConvertible: DatabaseValueConvertible {
@@ -11,9 +7,7 @@ private struct IntConvertible: DatabaseValueConvertible {
     init(int: Int) {
         self.int = int
     }
-    var databaseValue: DatabaseValue {
-        return int.databaseValue
-    }
+    var databaseValue: DatabaseValue { int.databaseValue }
     static func fromDatabaseValue(_ dbValue: DatabaseValue) -> IntConvertible? {
         guard let int = Int.fromDatabaseValue(dbValue) else {
             return nil
@@ -31,7 +25,7 @@ class DatabaseValueConvertibleCrashTests: GRDBCrashTestCase {
                 try db.execute(sql: "INSERT INTO ints (int) VALUES (1)")
                 try db.execute(sql: "INSERT INTO ints (int) VALUES (NULL)")
                 
-                let statement = try db.makeSelectStatement(sql: "SELECT int FROM ints ORDER BY int")
+                let statement = try db.makeStatement(sql: "SELECT int FROM ints ORDER BY int")
                 let sequence = IntConvertible.fetch(statement)
                 for _ in sequence { }
             }
@@ -45,7 +39,7 @@ class DatabaseValueConvertibleCrashTests: GRDBCrashTestCase {
                 try db.execute(sql: "INSERT INTO ints (int) VALUES (1)")
                 try db.execute(sql: "INSERT INTO ints (int) VALUES (NULL)")
                 
-                let statement = try db.makeSelectStatement(sql: "SELECT int FROM ints ORDER BY int")
+                let statement = try db.makeStatement(sql: "SELECT int FROM ints ORDER BY int")
                 _ = IntConvertible.fetchAll(statement)
             }
         }

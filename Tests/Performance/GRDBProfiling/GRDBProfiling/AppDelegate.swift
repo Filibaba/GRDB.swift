@@ -7,6 +7,8 @@ let insertedRowCount = 20_000
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        try! parseDateComponents()
+        try! parseDates()
         try! fetchValues()
         try! fetchPositionalValues()
         try! fetchNamedValues()
@@ -18,6 +20,46 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         try! insertStructs()
         try! insertCodables()
         try! insertRecords()
+    }
+    
+    // MARK: -
+    
+    func parseDateComponents() throws {
+        /// Selects many dates
+        let request = """
+            WITH RECURSIVE
+                cnt(x) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT x+1 FROM cnt
+                    LIMIT 50000
+                )
+            SELECT '2018-04-20 14:47:12.345' FROM cnt;
+            """
+        
+        try DatabaseQueue().inDatabase { db in
+            let cursor = try DatabaseDateComponents.fetchCursor(db, sql: request)
+            while try cursor.next() != nil { }
+        }
+    }
+    
+    func parseDates() throws {
+        /// Selects many dates
+        let request = """
+            WITH RECURSIVE
+                cnt(x) AS (
+                    SELECT 1
+                    UNION ALL
+                    SELECT x+1 FROM cnt
+                    LIMIT 50000
+                )
+            SELECT '2018-04-20 14:47:12.345' FROM cnt;
+            """
+        
+        try DatabaseQueue().inDatabase { db in
+            let cursor = try Date.fetchCursor(db, sql: request)
+            while try cursor.next() != nil { }
+        }
     }
     
     // MARK: -
@@ -111,7 +153,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func _fetchStructs(_ db: Database) throws -> [ItemStruct] {
-        return try ItemStruct.fetchAll(db)
+        try ItemStruct.fetchAll(db)
     }
     
     // MARK: -
@@ -127,7 +169,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func _fetchCodables(_ db: Database) throws -> [ItemCodable] {
-        return try ItemCodable.fetchAll(db)
+        try ItemCodable.fetchAll(db)
     }
 
     // MARK: -
@@ -143,7 +185,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func _fetchRecords(_ db: Database) throws -> [ItemRecord] {
-        return try ItemRecord.fetchAll(db)
+        try ItemRecord.fetchAll(db)
     }
     
     // MARK: -
@@ -169,7 +211,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func _insertPositionalValues(_ db: Database) throws {
-        let statement = try db.makeUpdateStatement(sql: "INSERT INTO items (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9) VALUES (?,?,?,?,?,?,?,?,?,?)")
+        let statement = try db.makeStatement(sql: "INSERT INTO items (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9) VALUES (?,?,?,?,?,?,?,?,?,?)")
         for i in 0..<insertedRowCount {
             try statement.execute(arguments: [i, i, i, i, i, i, i, i, i, i])
         }
@@ -198,7 +240,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func _insertNamedValues(_ db: Database) throws {
-        let statement = try db.makeUpdateStatement(sql: "INSERT INTO items (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9) VALUES (:i0, :i1, :i2, :i3, :i4, :i5, :i6, :i7, :i8, :i9)")
+        let statement = try db.makeStatement(sql: "INSERT INTO items (i0, i1, i2, i3, i4, i5, i6, i7, i8, i9) VALUES (:i0, :i1, :i2, :i3, :i4, :i5, :i6, :i7, :i8, :i9)")
         for i in 0..<insertedRowCount {
             try statement.execute(arguments: ["i0": i, "i1": i, "i2": i, "i3": i, "i4": i, "i5": i, "i6": i, "i7": i, "i8": i, "i9": i])
         }
@@ -316,7 +358,7 @@ class ItemRecord : Record {
     }
     
     override class var databaseTableName: String {
-        return "items"
+        "items"
     }
     
     required init(row: GRDB.Row) {

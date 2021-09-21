@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 private struct Book {
     var id: Int64?
@@ -14,7 +10,11 @@ private struct Book {
 
 extension Book : FetchableRecord {
     init(row: Row) {
+        #if compiler(>=5.5)
+        id = row[.rowID]
+        #else
         id = row[Column.rowID]
+        #endif
         title = row["title"]
         author = row["author"]
         body = row["body"]
@@ -26,7 +26,11 @@ extension Book : MutablePersistableRecord {
     static let databaseSelection: [SQLSelectable] = [AllColumns(), Column.rowID]
 
     func encode(to container: inout PersistenceContainer) {
+        #if compiler(>=5.5)
+        container[.rowID] = id
+        #else
         container[Column.rowID] = id
+        #endif
         container["title"] = title
         container["author"] = author
         container["body"] = body
@@ -38,18 +42,6 @@ extension Book : MutablePersistableRecord {
 }
 
 class FTS4RecordTests: GRDBTestCase {
-    
-    override func setUp() {
-        super.setUp()
-        
-        dbConfiguration.trace = { [unowned self] sql in
-            // Ignore virtual table logs
-            if !sql.hasPrefix("--") {
-                self.sqlQueries.append(sql)
-            }
-        }
-    }
-    
     override func setup(_ dbWriter: DatabaseWriter) throws {
         try dbWriter.write { db in
             try db.create(virtualTable: "books", using: FTS4()) { t in
@@ -117,12 +109,18 @@ class FTS4RecordTests: GRDBTestCase {
                 try book.insert(db)
             }
             
-            let pattern = try FTS3Pattern(rawPattern: "Herman Melville")
-            XCTAssertEqual(try Book.matching(pattern).fetchCount(db), 1)
-            XCTAssertEqual(lastSQLQuery, "SELECT COUNT(*) FROM \"books\" WHERE \"books\" MATCH 'Herman Melville'")
+            do {
+                sqlQueries = []
+                let pattern = try FTS3Pattern(rawPattern: "Herman Melville")
+                XCTAssertEqual(try Book.matching(pattern).fetchCount(db), 1)
+                XCTAssertTrue(sqlQueries.contains("SELECT COUNT(*) FROM \"books\" WHERE \"books\" MATCH 'Herman Melville'"))
+            }
             
-            XCTAssertEqual(try Book.fetchCount(db), 1)
-            XCTAssertEqual(lastSQLQuery, "SELECT COUNT(*) FROM \"books\"")
+            do {
+                sqlQueries = []
+                XCTAssertEqual(try Book.fetchCount(db), 1)
+                XCTAssertTrue(sqlQueries.contains("SELECT COUNT(*) FROM \"books\""))
+            }
         }
     }
 }

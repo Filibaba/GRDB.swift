@@ -1,9 +1,5 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 class DatabaseWriterTests : GRDBTestCase {
     
@@ -59,7 +55,7 @@ class DatabaseWriterTests : GRDBTestCase {
             }
             semaphore.signal()
 
-            waitForExpectations(timeout: 1, handler: nil)
+            waitForExpectations(timeout: 2, handler: nil)
             let tableExists = try dbWriter.read { try $0.tableExists("testAsyncWriteWithoutTransaction") }
             XCTAssertTrue(tableExists)
         }
@@ -86,14 +82,13 @@ class DatabaseWriterTests : GRDBTestCase {
                 expectation.fulfill()
             }
             semaphore.signal()
-            waitForExpectations(timeout: 1, handler: nil)
+            waitForExpectations(timeout: 2, handler: nil)
         }
         
         try test(makeDatabaseQueue())
         try test(makeDatabasePool())
     }
     
-    #if compiler(>=5.0)
     func testAsyncWriteSuccess() throws {
         func test(_ dbWriter: DatabaseWriter) throws {
             let expectation = self.expectation(description: "updates")
@@ -114,7 +109,7 @@ class DatabaseWriterTests : GRDBTestCase {
             })
             semaphore.signal()
             
-            waitForExpectations(timeout: 1, handler: nil)
+            waitForExpectations(timeout: 2, handler: nil)
             let tableExists = try dbWriter.read { try $0.tableExists("testAsyncWrite") }
             XCTAssertTrue(tableExists)
         }
@@ -122,9 +117,7 @@ class DatabaseWriterTests : GRDBTestCase {
         try test(makeDatabaseQueue())
         try test(makeDatabasePool())
     }
-    #endif
     
-    #if compiler(>=5.0)
     func testAsyncWriteError() throws {
         func test(_ dbWriter: DatabaseWriter) throws {
             let expectation = self.expectation(description: "updates")
@@ -148,14 +141,13 @@ class DatabaseWriterTests : GRDBTestCase {
                 expectation.fulfill()
             })
             semaphore.signal()
-            waitForExpectations(timeout: 1, handler: nil)
+            waitForExpectations(timeout: 2, handler: nil)
         }
         
         try test(makeDatabaseQueue())
         try test(makeDatabasePool())
     }
-    #endif
-
+    
     func testAnyDatabaseWriter() {
         // This test passes if this code compiles.
         let writer: DatabaseWriter = DatabaseQueue()
@@ -201,6 +193,48 @@ class DatabaseWriterTests : GRDBTestCase {
             try XCTAssertNil(Row.fetchOne(db, sql: "SELECT * FROM sqlite_master"))
         }
     }
+
+    func testVacuumInto() throws {
+        guard #available(OSX 10.16, iOS 14, tvOS 14, watchOS 7, *) else {
+            throw XCTSkip("VACUUM INTO is not available")
+        }
+        // Prevent SQLCipher failures
+        guard sqlite3_libversion_number() >= 3027000 else {
+            throw XCTSkip("VACUUM INTO is not available")
+        }
+        
+        func testVacuumInto(writer: DatabaseWriter) throws {
+            var migrator = DatabaseMigrator()
+            migrator.registerMigration("init") { db in
+                try db.execute(sql: """
+                    CREATE TABLE t1 (id INTEGER PRIMARY KEY AUTOINCREMENT, b, c);
+                    INSERT INTO t1 (b, c) VALUES (1, 1);
+                    INSERT INTO t1 (b, c) VALUES (2, 2);
+                    """)
+            }
+            
+            try migrator.migrate(writer)
+            
+            try writer.read { db in
+                try XCTAssertTrue(db.tableExists("t1"))
+                XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT count(*) from t1"), 2)
+            }
+            
+            let intoPath = NSTemporaryDirectory().appending(ProcessInfo.processInfo.globallyUniqueString).appending("-vacuum-into-db.sqlite")
+            try writer.vacuum(into: intoPath)
+            
+            // open newly created file and ensure table was copied, and
+            // encrypted like the original.
+            let newWriter = try DatabaseQueue(path: intoPath, configuration: writer.configuration)
+            try newWriter.read { db in
+                try XCTAssertTrue(db.tableExists("t1"))
+                XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT count(*) from t1"), 2)
+            }
+        }
+        
+        try testVacuumInto(writer: makeDatabaseQueue())
+        try testVacuumInto(writer: makeDatabasePool())
+    }
     
     // See https://github.com/groue/GRDB.swift/issues/424
     func testIssue424() throws {
@@ -212,28 +246,22 @@ class DatabaseWriterTests : GRDBTestCase {
                 """)
         }
         try dbQueue.read { db in
-            _ = try Row.fetchCursor(db.cachedSelectStatement(sql: "SELECT * FROM t")).next()
+            _ = try Row.fetchCursor(db.cachedStatement(sql: "SELECT * FROM t")).next()
         }
         try dbQueue.erase()
     }
     
     // See https://github.com/groue/GRDB.swift/issues/424
     func testIssue424Minimal() throws {
-        #if GRDBCIPHER
-        // SQLCipher can't backup encrypted databases: skip this test
-        if dbConfiguration.passphrase != nil {
-            return
-        }
-        #endif
-        
-        let dbQueue = try makeDatabaseQueue()
+        // SQLCipher can't backup encrypted databases: use a pristine Configuration
+        let dbQueue = try makeDatabaseQueue(configuration: Configuration())
         try dbQueue.inDatabase { db in
             try db.execute(sql: """
                 CREATE TABLE t(a);
                 INSERT INTO t VALUES (1);
                 PRAGMA query_only = 1;
                 """)
-            _ = try Row.fetchCursor(db.cachedSelectStatement(sql: "SELECT * FROM t")).next()
+            _ = try Row.fetchCursor(db.cachedStatement(sql: "SELECT * FROM t")).next()
         }
         try DatabaseQueue().backup(to: dbQueue)
     }

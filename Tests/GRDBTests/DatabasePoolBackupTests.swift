@@ -1,56 +1,45 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    @testable import GRDBCustomSQLite
-#else
-    @testable import GRDB
-#endif
+@testable import GRDB
 
 class DatabasePoolBackupTests: GRDBTestCase {
 
     func testBackup() throws {
-        #if GRDBCIPHER
-        // SQLCipher can't backup encrypted databases: skip this test
-        if dbConfiguration.passphrase != nil {
-            return
-        }
-        #endif
-        
-        let source = try makeDatabasePool(filename: "source.sqlite")
-        let destination = try makeDatabasePool(filename: "destination.sqlite")
+        // SQLCipher can't backup encrypted databases: use a pristine Configuration
+        let source = try makeDatabasePool(filename: "source.sqlite", configuration: Configuration())
+        let destination = try makeDatabasePool(filename: "destination.sqlite", configuration: Configuration())
         
         try source.write { db in
-            try db.execute(sql: "CREATE TABLE items (id INTEGER PRIMARY KEY)")
-            try db.execute(sql: "INSERT INTO items (id) VALUES (NULL)")
-            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM items")!, 1)
+            try db.execute(sql: "CREATE TABLE item (id INTEGER PRIMARY KEY)")
+            try db.execute(sql: "INSERT INTO item (id) VALUES (NULL)")
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item")!, 1)
         }
         
         try source.backup(to: destination)
         
         try destination.read { db in
-            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM items")!, 1)
+            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item")!, 1)
         }
         
         try source.write { db in
-            try db.execute(sql: "DROP TABLE items")
+            try db.execute(sql: "DROP TABLE item")
         }
         
         try source.backup(to: destination)
         
         try destination.read { db in
-            XCTAssertFalse(try db.tableExists("items"))
+            XCTAssertFalse(try db.tableExists("item"))
         }
     }
     
-    // TODO: this test is fragile: understand if somethig is wrong, or not:
-//    @available(OSX 10.10, *)
+    // TODO: fix flaky test
 //    func testConcurrentWriteDuringBackup() throws {
 //        let source = try makeDatabasePool(filename: "source.sqlite")
 //        let destination = try makeDatabasePool(filename: "destination.sqlite")
 //        
 //        try source.write { db in
-//            try db.execute(sql: "CREATE TABLE items (id INTEGER PRIMARY KEY)")
-//            try db.execute(sql: "INSERT INTO items (id) VALUES (NULL)")
-//            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM items")!, 1)
+//            try db.execute(sql: "CREATE TABLE item (id INTEGER PRIMARY KEY)")
+//            try db.execute(sql: "INSERT INTO item (id) VALUES (NULL)")
+//            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item")!, 1)
 //        }
 //        
 //        let s1 = DispatchSemaphore(value: 0)
@@ -58,32 +47,34 @@ class DatabasePoolBackupTests: GRDBTestCase {
 //        DispatchQueue.global().async {
 //            _ = s1.wait(timeout: .distantFuture)
 //            try! source.writeInTransaction(.immediate) { db in
-//                try db.execute(sql: "INSERT INTO items (id) VALUES (NULL)")
+//                try db.execute(sql: "INSERT INTO item (id) VALUES (NULL)")
 //                s2.signal()
 //                return .commit
 //            }
 //        }
 //        
-//        try source.backup(
-//            to: destination,
-//            afterBackupInit: {
-//                s1.signal()
-//                _ = s2.wait(timeout: .distantFuture)
-//        },
-//            afterBackupStep: {
-//                try! source.write { db in
-//                    try db.execute(sql: "INSERT INTO items (id) VALUES (NULL)")
-//                }
-//        })
+//        try destination.writeWithoutTransaction { dbDestination in
+//            try source.backup(
+//                to: dbDestination,
+//                afterBackupInit: {
+//                    s1.signal()
+//                    _ = s2.wait(timeout: .distantFuture)
+//            },
+//                afterBackupStep: {
+//                    try! source.write { db in
+//                        try db.execute(sql: "INSERT INTO item (id) VALUES (NULL)")
+//                    }
+//            })
+//        }
 //        
 //        try source.read { db in
-//            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM items")!, 3)
+//            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item")!, 3)
 //        }
 //        try destination.read { db in
 //            // TODO: understand why the fix for https://github.com/groue/GRDB.swift/issues/102
 //            // had this value change from 2 to 1.
 //            // TODO: Worse, this test is fragile. I've seen not 1 but 2 once.
-//            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM items")!, 1)
+//            XCTAssertEqual(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item")!, 1)
 //        }
 //    }
 }

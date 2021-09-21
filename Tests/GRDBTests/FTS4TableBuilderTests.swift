@@ -1,23 +1,7 @@
 import XCTest
-#if GRDBCUSTOMSQLITE
-    import GRDBCustomSQLite
-#else
-    import GRDB
-#endif
+import GRDB
 
 class FTS4TableBuilderTests: GRDBTestCase {
-    
-    override func setUp() {
-        super.setUp()
-        
-        dbConfiguration.trace = { [unowned self] sql in
-            // Ignore virtual table logs
-            if !sql.hasPrefix("--") {
-                self.sqlQueries.append(sql)
-            }
-        }
-    }
-    
     func testWithoutBody() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
@@ -61,12 +45,6 @@ class FTS4TableBuilderTests: GRDBTestCase {
     }
 
     func testUnicode61Tokenizer() throws {
-        #if !GRDBCUSTOMSQLITE && !GRDBCIPHER
-            guard #available(iOS 8.2, OSX 10.10, *) else {
-                return
-            }
-        #endif
-        
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             try db.create(virtualTable: "documents", using: FTS4()) { t in
@@ -77,12 +55,6 @@ class FTS4TableBuilderTests: GRDBTestCase {
     }
 
     func testUnicode61TokenizerDiacriticsKeep() throws {
-        #if !GRDBCUSTOMSQLITE && !GRDBCIPHER
-            guard #available(iOS 8.2, OSX 10.10, *) else {
-                return
-            }
-        #endif
-        
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             try db.create(virtualTable: "documents", using: FTS4()) { t in
@@ -92,6 +64,7 @@ class FTS4TableBuilderTests: GRDBTestCase {
         }
     }
     
+    // TODO: why only custom SQLite build?
     #if GRDBCUSTOMSQLITE
     func testUnicode61TokenizerDiacriticsRemove() throws {
         let dbQueue = try makeDatabaseQueue()
@@ -105,12 +78,6 @@ class FTS4TableBuilderTests: GRDBTestCase {
     #endif
 
     func testUnicode61TokenizerSeparators() throws {
-        #if !GRDBCUSTOMSQLITE && !GRDBCIPHER
-            guard #available(iOS 8.2, OSX 10.10, *) else {
-                return
-            }
-        #endif
-        
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             try db.create(virtualTable: "documents", using: FTS4()) { t in
@@ -121,12 +88,6 @@ class FTS4TableBuilderTests: GRDBTestCase {
     }
 
     func testUnicode61TokenizerTokenCharacters() throws {
-        #if !GRDBCUSTOMSQLITE && !GRDBCIPHER
-            guard #available(iOS 8.2, OSX 10.10, *) else {
-                return
-            }
-        #endif
-        
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             try db.create(virtualTable: "documents", using: FTS4()) { t in
@@ -156,12 +117,6 @@ class FTS4TableBuilderTests: GRDBTestCase {
     }
 
     func testNotIndexedColumns() throws {
-        #if !GRDBCUSTOMSQLITE && !GRDBCIPHER
-            guard #available(iOS 8.2, OSX 10.10, *) else {
-                return
-            }
-        #endif
-        
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
             try db.create(virtualTable: "books", using: FTS4()) { t in
@@ -239,6 +194,23 @@ class FTS4TableBuilderTests: GRDBTestCase {
         }
     }
 
+    func testFTS4SynchronizationIfNotExists() throws {
+        let dbQueue = try makeDatabaseQueue()
+        try dbQueue.writeWithoutTransaction { db in
+            try db.create(table: "documents") { t in
+                t.column("id", .integer).primaryKey()
+                t.column("content", .text)
+            }
+            assertDidExecute(sql: "CREATE TABLE \"documents\" (\"id\" INTEGER PRIMARY KEY, \"content\" TEXT)")
+            try db.create(virtualTable: "ft_documents", ifNotExists: true, using: FTS4()) { t in
+                t.synchronize(withTable: "documents")
+                t.column("content")
+            }
+            assertDidExecute(sql: "CREATE VIRTUAL TABLE IF NOT EXISTS \"ft_documents\" USING fts4(content, content=\"documents\")")
+            assertDidExecute(sql: "CREATE TRIGGER IF NOT EXISTS \"__ft_documents_bu\" BEFORE UPDATE ON \"documents\" BEGIN\n    DELETE FROM \"ft_documents\" WHERE docid=old.\"id\";\nEND")
+        }
+    }
+
     func testFTS4SynchronizationCleanup() throws {
         let dbQueue = try makeDatabaseQueue()
         try dbQueue.inDatabase { db in
@@ -303,15 +275,17 @@ class FTS4TableBuilderTests: GRDBTestCase {
         var compressCalled = false
         var uncompressCalled = false
         
+        dbConfiguration.prepareDatabase { db in
+            db.add(function: DatabaseFunction("zipit", argumentCount: 1, pure: true, function: { dbValues in
+                compressCalled = true
+                return dbValues[0]
+            }))
+            db.add(function: DatabaseFunction("unzipit", argumentCount: 1, pure: true, function: { dbValues in
+                uncompressCalled = true
+                return dbValues[0]
+            }))
+        }
         let dbPool = try makeDatabasePool()
-        dbPool.add(function: DatabaseFunction("zipit", argumentCount: 1, pure: true, function: { dbValues in
-            compressCalled = true
-            return dbValues[0]
-        }))
-        dbPool.add(function: DatabaseFunction("unzipit", argumentCount: 1, pure: true, function: { dbValues in
-            uncompressCalled = true
-            return dbValues[0]
-        }))
         
         try dbPool.write { db in
             try db.create(virtualTable: "documents", using: FTS4()) { t in
