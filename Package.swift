@@ -1,18 +1,17 @@
 // swift-tools-version:5.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
-
 import PackageDescription
 
 let package = Package(
     name: "GRDB",
     platforms: [
-        .iOS("10.0"),
+        .iOS("13.0"),
         .macOS("10.10"),
         .tvOS("9.0"),
         .watchOS("2.0"),
     ],
     products: [
-        .library(name: "GRDB", type: .dynamic, targets: ["GRDB"]),
+        .library(name: "GRDB", targets: ["GRDB"]),
     ],
     dependencies: [
     ],
